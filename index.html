@@ -1,0 +1,4492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>平面图交互编辑器 · CAD Floorplan Editor</title>
+  <style>
+    :root {
+      --bg-app: #eef2f6;
+      --bg-panel: #ffffff;
+      --bg-toolbar: #0f172a;
+      --border: #cbd5e1;
+      --border-dark: #334155;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-soft: #eff6ff;
+      --danger: #dc2626;
+      --success: #059669;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-app);
+      color: var(--text-main);
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Top Toolbar */
+    .toolbar {
+      height: 54px;
+      background: var(--bg-toolbar);
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      gap: 10px;
+      border-bottom: 1px solid #1e293b;
+      z-index: 30;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
+    }
+
+    .brand-badge {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.4px;
+    }
+
+    .brand-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: #94a3b8;
+      background: #1e293b;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+
+    .divider {
+      width: 1px;
+      height: 24px;
+      background: #334155;
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: #334155;
+      color: #ffffff;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn.active {
+      background: var(--accent);
+      border-color: #3b82f6;
+      color: #ffffff;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: #3b82f6;
+      color: #ffffff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-success {
+      background: #047857;
+      border-color: #059669;
+      color: #ffffff;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: #065f46;
+    }
+
+    .btn-danger-ghost {
+      color: #fca5a5;
+      border-color: #450a0a;
+      background: #2b1215;
+    }
+
+    .btn-danger-ghost:hover:not(:disabled) {
+      background: #7f1d1d;
+      color: #fff;
+    }
+
+    /* Dropdown Menu */
+    .dropdown-wrap {
+      position: relative;
+    }
+
+    .dropdown-menu {
+      position: fixed;
+      top: 52px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+      padding: 8px;
+      width: 310px;
+      z-index: 100;
+      display: none;
+      color: var(--text-main);
+    }
+
+    .dropdown-menu.open {
+      display: block;
+    }
+
+    .dropdown-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 4px 6px;
+      text-transform: uppercase;
+    }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .palette-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 7px 9px;
+      border: 1px solid #e2e8f0;
+      border-radius: 7px;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: all 0.12s;
+      text-align: left;
+    }
+
+    .palette-item:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .palette-item strong {
+      font-size: 12px;
+      color: #0f172a;
+    }
+
+    .palette-item span {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* Main Content Area */
+    .workspace {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #e5ebf3;
+      cursor: default;
+    }
+
+    .canvas-container.panning {
+      cursor: grabbing !important;
+    }
+
+    svg#editorSvg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    /* Zoom Controls Overlay */
+    .zoom-controls {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+      z-index: 15;
+    }
+
+    .zoom-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .zoom-btn:hover {
+      background: #f1f5f9;
+      color: var(--accent);
+    }
+
+    .zoom-btn.wide {
+      width: auto;
+      padding: 0 8px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .zoom-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #334155;
+      min-width: 44px;
+      text-align: center;
+    }
+
+    /* Hint pill */
+    .canvas-hint {
+      position: absolute;
+      left: 14px;
+      top: 12px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: #475569;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Right Inspector */
+    .inspector {
+      width: 284px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow-y: auto;
+      z-index: 20;
+    }
+
+    .inspector-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+    }
+
+    .inspector-body {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      flex: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 28px 12px;
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .input-box {
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #ffffff;
+      padding: 0 8px;
+      height: 32px;
+      transition: border-color 0.15s;
+    }
+
+    .input-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+
+    .input-box span.prefix {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-right: 6px;
+      font-weight: 600;
+    }
+
+    .input-box span.unit {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-left: 4px;
+    }
+
+    .input-box input {
+      border: none;
+      outline: none;
+      width: 100%;
+      font-size: 12px;
+      color: var(--text-main);
+      background: transparent;
+      user-select: text;
+      font-family: inherit;
+    }
+
+    .inspector-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .panel-btn {
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+      color: #1e293b;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.12s;
+    }
+
+    .panel-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .panel-btn.primary {
+      background: var(--accent-soft);
+      border-color: #93c5fd;
+      color: #1d4ed8;
+    }
+
+    .panel-btn.primary:hover {
+      background: #dbeafe;
+    }
+
+    .panel-btn.danger {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #dc2626;
+    }
+
+    .panel-btn.danger:hover {
+      background: #fee2e2;
+    }
+
+    .legend-card {
+      margin-top: auto;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: #475569;
+      line-height: 1.7;
+    }
+
+    .legend-card strong {
+      display: block;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .kbd {
+      display: inline-block;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 0 5px;
+      font-size: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #334155;
+    }
+
+    /* Status Bar */
+    .statusbar {
+      height: 28px;
+      background: #f8fafc;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      font-size: 11px;
+      color: #475569;
+      flex-shrink: 0;
+    }
+
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      display: inline-block;
+      margin-right: 5px;
+    }
+
+    /* Interactive SVG styles */
+    .interactive-item {
+      cursor: move;
+    }
+
+    .interactive-item:hover .item-hover-ring {
+      opacity: 0.45;
+    }
+
+    .resize-handle {
+      fill: #ffffff;
+      stroke: #2563eb;
+      stroke-width: 1.6;
+    }
+
+    .resize-handle:hover {
+      fill: #2563eb;
+    }
+
+    .rotate-handle {
+      fill: #ffffff;
+      stroke: #2563eb;
+      stroke-width: 1.8;
+      cursor: grab;
+    }
+
+    .rotate-handle:hover {
+      fill: #2563eb;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 42px;
+      left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: #0f172a;
+      color: #ffffff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.2s ease;
+      z-index: 200;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* 2D / 3D Mode Switcher */
+    .mode-switch {
+      display: inline-flex;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 7px;
+      padding: 2px;
+      gap: 2px;
+      margin-left: 6px;
+    }
+
+    .mode-tab {
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .mode-tab:hover {
+      color: #ffffff;
+    }
+
+    .mode-tab.active {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    }
+
+    /* 3D Viewport */
+    .view3d-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #0f172a;
+      display: none;
+    }
+
+    .view3d-container.active {
+      display: block;
+    }
+
+    #canvasContainer.hidden {
+      display: none;
+    }
+
+    .hud3d-top {
+      position: absolute;
+      left: 14px;
+      top: 12px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 15;
+      flex-wrap: wrap;
+    }
+
+    .hud3d-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 8px;
+      padding: 5px 8px;
+      pointer-events: auto;
+      flex-wrap: wrap;
+    }
+
+    .hud3d-btn {
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(30, 41, 59, 0.9);
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 9px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.14s;
+      white-space: nowrap;
+    }
+
+    .hud3d-btn:hover {
+      background: #334155;
+      color: #fff;
+    }
+
+    .hud3d-btn.active {
+      background: var(--accent);
+      border-color: #60a5fa;
+      color: #fff;
+    }
+
+    .hud3d-bottom {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 11px;
+      color: #cbd5e1;
+      line-height: 1.5;
+      pointer-events: none;
+      z-index: 15;
+      max-width: calc(100% - 240px);
+    }
+
+    /* 3D On-screen Directional Navigation Pad */
+    .nav3d-pad {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      background: rgba(15, 23, 42, 0.86);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 20;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .nav3d-dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 34px);
+      grid-template-rows: repeat(3, 34px);
+      gap: 4px;
+    }
+
+    .nav3d-elev {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .nav3d-btn {
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      background: rgba(30, 41, 59, 0.95);
+      color: #f1f5f9;
+      border-radius: 7px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s;
+      touch-action: none;
+    }
+
+    .nav3d-btn:hover {
+      background: #334155;
+      border-color: #60a5fa;
+    }
+
+    .nav3d-btn:active,
+    .nav3d-btn.pressed {
+      background: var(--accent);
+      border-color: #93c5fd;
+      color: #ffffff;
+      transform: scale(0.95);
+    }
+
+    .nav3d-btn.elev {
+      width: 52px;
+      height: 48px;
+      flex-direction: column;
+      font-size: 11px;
+      gap: 2px;
+    }
+
+    /* Sidebar Tabs & Material Area Board */
+    .sidebar-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 6px;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-tab {
+      border: 1px solid transparent;
+      background: transparent;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.14s;
+    }
+
+    .sidebar-tab:hover {
+      color: #0f172a;
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .sidebar-tab.active {
+      background: #ffffff;
+      color: var(--accent);
+      border-color: #cbd5e1;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+
+    .area-board {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .area-summary-banner {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #f8fafc;
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    .area-summary-banner strong {
+      font-size: 12px;
+      color: #93c5fd;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .area-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 9px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .area-card.kitchen-wall { border-left-color: #0284c7; }
+    .area-card.kitchen-floor { border-left-color: #0d9488; }
+    .area-card.front-floor { border-left-color: #d97706; }
+    .area-card.front-cement { border-left-color: #64748b; }
+    .area-card.front-black { border-left-color: #0f172a; }
+
+    .area-card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .area-card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .area-card-val {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1d4ed8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: nowrap;
+    }
+
+    .area-card.front-black .area-card-val { color: #0f172a; }
+    .area-card.kitchen-floor .area-card-val { color: #0f766e; }
+    .area-card.front-floor .area-card-val { color: #b45309; }
+    .area-card.front-cement .area-card-val { color: #334155; }
+
+    .area-card-sub {
+      font-size: 11px;
+      color: #475569;
+      line-height: 1.45;
+    }
+
+    .area-card-detail {
+      font-size: 10px;
+      color: #64748b;
+      background: #ffffff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 5px;
+      padding: 4px 7px;
+      margin-top: 2px;
+      line-height: 1.5;
+    }
+
+    /* Mobile Responsive Layout */
+    @media (max-width: 768px) {
+      .toolbar {
+        height: auto;
+        min-height: 48px;
+        flex-wrap: wrap;
+        padding: 6px 10px;
+        gap: 6px;
+      }
+      .brand-title, .brand-badge {
+        display: none;
+      }
+      .workspace {
+        flex-direction: column;
+      }
+      .inspector {
+        width: 100%;
+        height: 36vh;
+        min-height: 180px;
+        border-left: none;
+        border-top: 1px solid var(--border);
+      }
+      .canvas-hint, .hud3d-bottom {
+        display: none;
+      }
+      .nav3d-pad {
+        transform: scale(0.84);
+        transform-origin: bottom right;
+        right: 8px;
+        bottom: 8px;
+      }
+    }
+  </style>
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/OrbitControls.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Toolbar -->
+    <header class="toolbar">
+      <div class="brand">
+        <span class="brand-badge">CAD 平面图</span>
+        <span class="brand-title">店铺平面与3D编辑器</span>
+        <div class="mode-switch">
+          <button id="tabMode2D" class="mode-tab active">📐 2D 平面编辑</button>
+          <button id="tabMode3D" class="mode-tab">🧊 3D 实景模型</button>
+        </div>
+      </div>
+
+      <div class="toolbar-actions">
+        <div class="dropdown-wrap">
+          <button id="btnAddMenu" class="btn btn-primary">+ 新增桌椅/设备 ▾</button>
+          <div id="addDropdown" class="dropdown-menu">
+            <div class="dropdown-section-title">营业区桌椅 / 收银</div>
+            <div class="palette-grid">
+              <button class="palette-item" data-preset="diningTable">
+                <strong>餐桌</strong><span>1.15m × 0.65m</span>
+              </button>
+              <button class="palette-item" data-preset="sideTable">
+                <strong>右侧桌</strong><span>0.60m × 0.60m</span>
+              </button>
+              <button class="palette-item" data-preset="stool">
+                <strong>凳子</strong><span>0.38m × 0.38m</span>
+              </button>
+              <button class="palette-item" data-preset="cashier">
+                <strong>收银台</strong><span>1.50m × 0.50m</span>
+              </button>
+            </div>
+            <div class="dropdown-section-title">后厨设备 / 隔断 / 电气</div>
+            <div class="palette-grid">
+              <button class="palette-item" data-preset="shelf">
+                <strong>货架</strong><span>1.60m × 0.50m</span>
+              </button>
+              <button class="palette-item" data-preset="fridge">
+                <strong>冰箱</strong><span>0.90m × 0.60m</span>
+              </button>
+              <button class="palette-item" data-preset="prepTable">
+                <strong>操作台</strong><span>1.30m × 0.60m</span>
+              </button>
+              <button class="palette-item" data-preset="sink">
+                <strong>洗手池</strong><span>1.10m × 0.60m</span>
+              </button>
+              <button class="palette-item" data-preset="stove">
+                <strong>灶台(380V)</strong><span>0.65m × 1.40m</span>
+              </button>
+              <button class="palette-item" data-preset="partition">
+                <strong>隔断 / 挡板</strong><span>2.00m × 0.40m</span>
+              </button>
+              <button class="palette-item" data-preset="serving">
+                <strong>出餐台</strong><span>2.00m × 0.42m</span>
+              </button>
+              <button class="palette-item" data-preset="fan">
+                <strong>吊扇</strong><span>0.65m × 0.65m</span>
+              </button>
+              <button class="palette-item" data-preset="elecBox">
+                <strong>电箱</strong><span>0.50m × 0.35m</span>
+              </button>
+              <button class="palette-item" data-preset="power">
+                <strong>“电”点位</strong><span>0.32m × 0.32m</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button id="btnToggleDims" class="btn active" title="显示或隐藏尺寸标注">📐 尺寸标注: 开</button>
+        <button id="btnToggleSnap" class="btn active" title="0.1m 网格吸附对齐">🧲 0.1m 吸附: 开</button>
+
+        <div class="divider"></div>
+
+        <button id="btnUndo" class="btn" disabled title="撤销 (Ctrl/Cmd + Z)">↩ 撤销</button>
+        <button id="btnRedo" class="btn" disabled title="重做 (Ctrl/Cmd + Shift + Z)">↪ 重做</button>
+        <button id="btnRotateSelected" class="btn" disabled title="顺时针旋转 90° (R)">↻ 旋转 90°</button>
+        <button id="btnReset" class="btn btn-danger-ghost" title="恢复初始重构布局">↺ 重置布局</button>
+
+        <div class="divider"></div>
+
+        <button id="btnExportPng" class="btn btn-success">🖼 导出高清 PNG</button>
+        <button id="btnExportSvg" class="btn">📄 导出矢量 SVG</button>
+        <button id="btnOpenAreaBoard" class="btn active" title="查看各区域墙砖/地砖/漆面面积统计看板">📊 面积看板</button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+      <div id="canvasContainer" class="canvas-container">
+        <div class="canvas-hint">
+          💡 点击设备/桌椅/隔断即可拖拽、缩放、旋转 · 滚轮缩放视图 · 拖拽空白处平移画布
+        </div>
+        <svg id="editorSvg" xmlns="http://www.w3.org/2000/svg">
+          <defs id="svgDefs"></defs>
+          <g id="worldGroup">
+            <g id="gridLayer"></g>
+            <g id="detailDiagramLayer"></g>
+            <g id="architectureLayer"></g>
+            <g id="dimensionsLayer"></g>
+            <g id="itemsLayer"></g>
+            <g id="selectionLayer"></g>
+          </g>
+        </svg>
+
+        <div class="zoom-controls">
+          <button id="btnZoomOut" class="zoom-btn" title="缩小">−</button>
+          <span id="zoomText" class="zoom-label">100%</span>
+          <button id="btnZoomIn" class="zoom-btn" title="放大">+</button>
+          <button id="btnFitView" class="zoom-btn wide" title="适配全图到窗口">适配全图</button>
+        </div>
+      </div>
+
+      <!-- 3D Viewport Container -->
+      <div id="view3dContainer" class="view3d-container">
+        <div class="hud3d-top">
+          <div class="hud3d-group">
+            <button class="hud3d-btn active" data-cam="iso">🦅 鸟瞰全景</button>
+            <button class="hud3d-btn" data-cam="front">🚪 前厅进门视角</button>
+            <button class="hud3d-btn" data-cam="kitchen">🍳 后厨视角</button>
+            <button class="hud3d-btn" data-cam="counter">🍽️ 出餐口视角</button>
+            <button class="hud3d-btn" data-cam="top">📐 顶视正交感</button>
+          </div>
+          <div class="hud3d-group">
+            <button id="btnDragMode3D" class="hud3d-btn" title="切换鼠标左键功能：旋转视角 或 上下左右平移">🖱️ 左键: 旋转视角</button>
+            <button id="btnCeilingMode" class="hud3d-btn active" title="自动透视：俯视时透明，进入室内抬头可见4.7m黑顶">天花板: 自动透视</button>
+            <button id="btnExport3DPng" class="hud3d-btn">📷 导出 3D 渲染图</button>
+          </div>
+        </div>
+        <div class="hud3d-bottom">
+          ⌨️ <strong>WASD / ↑↓←→</strong> 前后左右移动 · <strong>Q/E</strong> 下降/上升 · 🖱️ 左键旋转(可切换平移) / 右键平移 / 滚轮缩放 ·
+          层高 <strong>4.70m</strong> | 后厨垫高 <strong>20cm</strong>（30×30地砖 + 5面墙2m墙砖）|
+          前厅 <strong>60×60地砖</strong> + 4m水泥漆 + 0.7m黑顶黑天花板
+        </div>
+        <div class="nav3d-pad" title="按住方向按钮持续移动视角">
+          <div class="nav3d-dpad">
+            <div></div>
+            <button class="nav3d-btn" data-move="fwd" title="向前移动 (W / ↑)">↑</button>
+            <div></div>
+            <button class="nav3d-btn" data-move="left" title="向左平移 (A / ←)">←</button>
+            <button class="nav3d-btn" id="btnNavReset" title="重置到全景视角" style="font-size:12px;">⌖</button>
+            <button class="nav3d-btn" data-move="right" title="向右平移 (D / →)">→</button>
+            <div></div>
+            <button class="nav3d-btn" data-move="back" title="向后移动 (S / ↓)">↓</button>
+            <div></div>
+          </div>
+          <div class="nav3d-elev">
+            <button class="nav3d-btn elev" data-move="up" title="视角升高 (E)"><span>▲</span><span>上升</span></button>
+            <button class="nav3d-btn elev" data-move="down" title="视角降低 (Q)"><span>▼</span><span>下降</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Property Inspector & Material Area Board -->
+      <aside class="inspector">
+        <div class="sidebar-tabs">
+          <button id="tabPanelArea" class="sidebar-tab active">📊 面积看板</button>
+          <button id="tabPanelProps" class="sidebar-tab">🔧 属性检查</button>
+        </div>
+
+        <div id="areaBoardPanel" class="inspector-body">
+          <div class="area-board">
+            <div class="area-summary-banner">
+              <strong>📐 装修材料面积统计看板</strong>
+              按当前校正尺寸（层高 4.70m · 隔断厚 <span id="boardPartThick">0.40</span>m）实时测算，含砖块片数与扣减说明。
+            </div>
+
+            <div class="area-card kitchen-wall">
+              <div class="area-card-head">
+                <span class="area-card-title">1. 后厨墙砖面积</span>
+                <span id="valKitchenWallTile" class="area-card-val">-- m²</span>
+              </div>
+              <div id="subKitchenWallTile" class="area-card-sub"></div>
+              <div id="detKitchenWallTile" class="area-card-detail"></div>
+            </div>
+
+            <div class="area-card kitchen-floor">
+              <div class="area-card-head">
+                <span class="area-card-title">2. 后厨地砖面积 (30×30)</span>
+                <span id="valKitchenFloorTile" class="area-card-val">-- m²</span>
+              </div>
+              <div id="subKitchenFloorTile" class="area-card-sub"></div>
+              <div id="detKitchenFloorTile" class="area-card-detail"></div>
+            </div>
+
+            <div class="area-card front-floor">
+              <div class="area-card-head">
+                <span class="area-card-title">3. 前厅地砖面积 (60×60)</span>
+                <span id="valFrontFloorTile" class="area-card-val">-- m²</span>
+              </div>
+              <div id="subFrontFloorTile" class="area-card-sub"></div>
+              <div id="detFrontFloorTile" class="area-card-detail"></div>
+            </div>
+
+            <div class="area-card front-cement">
+              <div class="area-card-head">
+                <span class="area-card-title">4. 前厅水泥漆面积 (4m高)</span>
+                <span id="valFrontCement" class="area-card-val">-- m²</span>
+              </div>
+              <div id="subFrontCement" class="area-card-sub"></div>
+              <div id="detFrontCement" class="area-card-detail"></div>
+            </div>
+
+            <div class="area-card front-black">
+              <div class="area-card-head">
+                <span class="area-card-title">5. 前厅黑漆面积 (0.7m+顶)</span>
+                <span id="valFrontBlack" class="area-card-val">-- m²</span>
+              </div>
+              <div id="subFrontBlack" class="area-card-sub"></div>
+              <div id="detFrontBlack" class="area-card-detail"></div>
+            </div>
+
+            <button id="btnCopyAreaReport" class="panel-btn primary" style="width:100%; margin-top:2px;">
+              📋 一键复制面积统计清单
+            </button>
+          </div>
+        </div>
+
+        <div id="propsInspectorPanel" class="inspector-body" style="display:none;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:6px; border-bottom:1px solid #e2e8f0;">
+            <span style="font-size:12px; font-weight:700;">当前组件参数</span>
+            <span id="itemTypeBadge" style="font-size:11px; color:#64748b; font-weight:500;">未选中</span>
+          </div>
+          <div id="inspectorEmpty" class="empty-state">
+            请在左侧画布中点击任意<br />
+            <strong>货架、灶台、冰箱、隔断、餐桌、<br />凳子、电箱或“电”点位</strong><br />
+            即可精确调整位置、长宽米数与角度。<br /><br />
+            外墙轮廓、大门、右侧门与左侧隔断大样图为固定参考层，不可移动。
+          </div>
+
+          <div id="inspectorForm" style="display:none; flex-direction:column; gap:12px;">
+            <div class="field-group">
+              <label class="field-label">组件名称 / 标注文字</label>
+              <div class="input-box">
+                <input id="propLabel" type="text" placeholder="例如：餐桌" />
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">位置坐标 (以主区左下角为 0,0)</label>
+              <div class="grid-2">
+                <div class="input-box">
+                  <span class="prefix">X</span>
+                  <input id="propX" type="number" step="0.1" />
+                  <span class="unit">m</span>
+                </div>
+                <div class="input-box">
+                  <span class="prefix">Y</span>
+                  <input id="propY" type="number" step="0.1" />
+                  <span class="unit">m</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">尺寸规格 (米)</label>
+              <div class="grid-2">
+                <div class="input-box">
+                  <span class="prefix">宽</span>
+                  <input id="propW" type="number" step="0.1" min="0.2" />
+                  <span class="unit">m</span>
+                </div>
+                <div class="input-box">
+                  <span class="prefix">深</span>
+                  <input id="propH" type="number" step="0.1" min="0.2" />
+                  <span class="unit">m</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">旋转角度</label>
+              <div class="grid-2">
+                <div class="input-box">
+                  <span class="prefix">∠</span>
+                  <input id="propRot" type="number" step="1" />
+                  <span class="unit">°</span>
+                </div>
+                <button id="btnPropRotate90" class="panel-btn primary">↻ 旋转 90°</button>
+              </div>
+            </div>
+
+            <div class="inspector-actions">
+              <button id="btnDuplicate" class="panel-btn">⧉ 复制一份</button>
+              <button id="btnDelete" class="panel-btn danger">🗑 删除组件</button>
+              <button id="btnBringFront" class="panel-btn">⬆ 置于顶层</button>
+              <button id="btnSendBack" class="panel-btn">⬇ 置于底层</button>
+            </div>
+          </div>
+
+          <div class="legend-card">
+            <strong>快捷键与操作说明</strong>
+            • 方向键 <span class="kbd">↑↓←→</span>：微调 0.1m<br />
+            • 旋转 90°：<span class="kbd">R</span><br />
+            • 复制 / 删除：<span class="kbd">Ctrl+D</span> / <span class="kbd">Del</span><br />
+            • 撤销 / 重做：<span class="kbd">Ctrl+Z</span> / <span class="kbd">Ctrl+Shift+Z</span><br />
+            • 按住 <span class="kbd">Alt</span> 拖拽可临时关闭网格吸附
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Bottom Status Bar -->
+    <footer class="statusbar">
+      <div class="status-group">
+        <span><span class="status-dot"></span>几何校正完成：底宽 3.67m · 左侧 6.9m + 5m · 斜顶 2m / 3.18m / 2.55m</span>
+      </div>
+      <div class="status-group">
+        <span id="cursorMeterText">指针: X 0.00m, Y 0.00m</span>
+        <span id="selectionStatusText">组件数: 0</span>
+      </div>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // ============================================================
+      // 1. Scale & Exact Rectified Architectural Geometry (1m = 60px)
+      // ============================================================
+      const SCALE = 60; // 1 meter = 60 SVG pixels
+      const WALL_T = 0.12; // 12cm architectural wall thickness inward
+      const STORAGE_KEY = 'oldfriend_cad_floorplan_v2';
+
+      // Architectural meter coordinates:
+      // Origin (0, 0) = bottom-left outer corner of main shop area.
+      // +X = right, +Y = up (architectural space).
+      // Convert architectural meters (xm, ym) -> SVG world pixels:
+      //   svgX = xm * SCALE
+      //   svgY = -ym * SCALE
+      const toSvgX = (xm) => xm * SCALE;
+      const toSvgY = (ym) => -ym * SCALE;
+
+      // Exact top slanted trapezoid solved so all 6 outer corners align strictly:
+      // A(0, 0) -> B(3.67, 0) -> D(3.67, 12.4152) -> P2(2.5730, 14.7171) -> P1(-0.4838, 13.8406) -> C(0, 11.90)
+      const ALPHA = (14 * Math.PI) / 180; // 2m wall leans outward-left 14°
+      const BETA = (16 * Math.PI) / 180;  // 3.18m roof slopes upward-right 16°
+
+      const PT_A = { x: 0, y: 0 };
+      const PT_B = { x: 3.67, y: 0 };
+      const PT_C = { x: 0, y: 11.90 }; // 6.9m + 5.0m
+      const PT_P1 = {
+        x: PT_C.x - 2.00 * Math.sin(ALPHA),
+        y: PT_C.y + 2.00 * Math.cos(ALPHA),
+      };
+      const PT_P2 = {
+        x: PT_P1.x + 3.18 * Math.cos(BETA),
+        y: PT_P1.y + 3.18 * Math.sin(BETA),
+      };
+      const dxRight = 3.67 - PT_P2.x;
+      const dyRight = Math.sqrt(2.55 * 2.55 - dxRight * dxRight);
+      const PT_D = {
+        x: 3.67,
+        y: PT_P2.y - dyRight,
+      };
+
+      // Counter-clockwise outer polygon in meter coords
+      const OUTER_POLY = [PT_A, PT_B, PT_D, PT_P2, PT_P1, PT_C];
+
+      // Compute exact inward offset polygon for mitered wall thickness
+      function computeInwardPolygon(pts, offset) {
+        const n = pts.length;
+        const lines = [];
+        for (let i = 0; i < n; i++) {
+          const p1 = pts[i];
+          const p2 = pts[(i + 1) % n];
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const len = Math.hypot(dx, dy);
+          // Inward normal for CCW polygon in math (+Y up): (-dy/len, dx/len)
+          const nx = -dy / len;
+          const ny = dx / len;
+          lines.push({
+            x1: p1.x + nx * offset,
+            y1: p1.y + ny * offset,
+            dx,
+            dy,
+          });
+        }
+        const inner = [];
+        for (let i = 0; i < n; i++) {
+          const l1 = lines[(i - 1 + n) % n];
+          const l2 = lines[i];
+          const det = l1.dx * l2.dy - l1.dy * l2.dx;
+          if (Math.abs(det) < 1e-8) {
+            inner.push({ x: l2.x1, y: l2.y1 });
+          } else {
+            const t = ((l2.x1 - l1.x1) * l2.dy - (l2.y1 - l1.y1) * l2.dx) / det;
+            inner.push({
+              x: l1.x1 + t * l1.dx,
+              y: l1.y1 + t * l1.dy,
+            });
+          }
+        }
+        return inner;
+      }
+
+      const INNER_POLY = computeInwardPolygon(OUTER_POLY, WALL_T);
+
+      // Slanted wall SVG angles (SVG Y goes down, so angle = atan2(-dy_math, dx_math) in deg)
+      const angle2mDeg = -14; // leans left by 14 deg from vertical -> vertical rect rotated -14 deg? Wait:
+      // Let's compute exact SVG angle of wall vectors!
+      const wallAngleSvg = (pStart, pEnd) => {
+        const dx = pEnd.x - pStart.x;
+        const dySvg = -(pEnd.y - pStart.y);
+        return (Math.atan2(dySvg, dx) * 180) / Math.PI;
+      };
+      const ANG_318 = wallAngleSvg(PT_P1, PT_P2); // ~ -16°
+      const ANG_255 = wallAngleSvg(PT_P2, PT_D);  // ~ +64.5°
+
+      // ============================================================
+      // 2. Initial Faithfully Reconstructed Interactive Components
+      // ============================================================
+      // Each item: { id, kind, label, cx, cy, w, h, rot }
+      // cx, cy in architectural meters (0,0 = bottom-left outer corner)
+      // w, h in meters; rot in degrees clockwise in SVG view
+      function createInitialItems() {
+        // Compute shelf centers tucked cleanly 0.38m inward along each slanted wall
+        const mid2 = { x: (PT_C.x + PT_P1.x) / 2, y: (PT_C.y + PT_P1.y) / 2 };
+        const n2 = { x: Math.cos(ALPHA), y: Math.sin(ALPHA) }; // inward normal of C->P1
+
+        const mid318 = { x: (PT_P1.x + PT_P2.x) / 2, y: (PT_P1.y + PT_P2.y) / 2 };
+        const n318 = { x: Math.sin(BETA), y: -Math.cos(BETA) }; // inward normal of P1->P2
+
+        const len255 = Math.hypot(PT_D.x - PT_P2.x, PT_D.y - PT_P2.y);
+        const mid255 = { x: (PT_P2.x + PT_D.x) / 2, y: (PT_P2.y + PT_D.y) / 2 };
+        const n255 = {
+          x: -(PT_D.y - PT_P2.y) / len255, // note: P2->D goes down-right, so inward normal is (-dy, dx)? wait:
+          // Wait: P2->D is (dx > 0, dy < 0). CCW inward normal (-dy, dx) has (-dy > 0, dx > 0) = outward!
+          // Wait: outer polygon is A -> B -> D -> P2 -> P1 -> C (CCW).
+          // So the edge in CCW order is D -> P2! Its inward normal is (-dy_DP2, dx_DP2):
+          // D->P2 has dx < 0, dy > 0, so (-dy < 0, dx < 0) = down-left = INWARD!
+        };
+        const dxDP2 = PT_P2.x - PT_D.x;
+        const dyDP2 = PT_P2.y - PT_D.y;
+        const n255In = { x: -dyDP2 / len255, y: dxDP2 / len255 };
+
+        return [
+          // 3 Racks (货架 x3) along slanted top walls
+          {
+            id: 'shelf_left',
+            kind: 'shelf',
+            label: '货架',
+            cx: +(mid2.x + n2.x * 0.40).toFixed(2),
+            cy: +(mid2.y + n2.y * 0.40).toFixed(2),
+            w: 0.48,
+            h: 1.50,
+            rot: -14,
+          },
+          {
+            id: 'shelf_top',
+            kind: 'shelf',
+            label: '货架',
+            cx: +(mid318.x + n318.x * 0.42).toFixed(2),
+            cy: +(mid318.y + n318.y * 0.42).toFixed(2),
+            w: 2.35,
+            h: 0.52,
+            rot: +ANG_318.toFixed(1),
+          },
+          {
+            id: 'shelf_right',
+            kind: 'shelf',
+            label: '货架',
+            cx: +(mid255.x + n255In.x * 0.40).toFixed(2),
+            cy: +(mid255.y + n255In.y * 0.40).toFixed(2),
+            w: 1.65,
+            h: 0.48,
+            rot: +ANG_255.toFixed(1),
+          },
+
+          // Upper Kitchen Row: 洗手池 + 冰箱
+          {
+            id: 'sink_1',
+            kind: 'sink',
+            label: '洗手池',
+            cx: 1.65,
+            cy: 11.45,
+            w: 1.05,
+            h: 0.58,
+            rot: 0,
+          },
+          {
+            id: 'fridge_top',
+            kind: 'fridge',
+            label: '冰箱',
+            cx: 2.65,
+            cy: 11.45,
+            w: 0.88,
+            h: 0.58,
+            rot: 0,
+          },
+
+          // Left Wall Kitchen: 圆桶/水池 + 灶台(380V)
+          {
+            id: 'vat_1',
+            kind: 'vat',
+            label: '圆桶',
+            cx: 0.44,
+            cy: 10.75,
+            w: 0.52,
+            h: 0.52,
+            rot: 0,
+          },
+          {
+            id: 'stove_1',
+            kind: 'stove',
+            label: '灶台 380V',
+            cx: 0.46,
+            cy: 9.25,
+            w: 0.62,
+            h: 1.45,
+            rot: 0,
+          },
+
+          // Center Kitchen Island: 冰箱 + 操作台
+          {
+            id: 'fridge_mid',
+            kind: 'fridge',
+            label: '冰箱',
+            cx: 1.65,
+            cy: 9.65,
+            w: 0.62,
+            h: 1.35,
+            rot: 0,
+          },
+          {
+            id: 'prep_1',
+            kind: 'prepTable',
+            label: '操作台',
+            cx: 2.38,
+            cy: 9.65,
+            w: 0.65,
+            h: 1.50,
+            rot: 0,
+          },
+
+          // Partition & Serving Counter (隔断约40cm厚与出餐台 at y ~ 6.9m)
+          {
+            id: 'partition_1',
+            kind: 'partition',
+            label: '隔断',
+            cx: 1.32,
+            cy: 6.90,
+            w: 2.36,
+            h: 0.40,
+            rot: 0,
+          },
+          {
+            id: 'serving_1',
+            kind: 'serving',
+            label: '出餐台',
+            cx: 1.24,
+            cy: 6.49,
+            w: 2.20,
+            h: 0.42,
+            rot: 0,
+          },
+
+          // Cashier Counter (收银台)
+          {
+            id: 'cashier_1',
+            kind: 'cashier',
+            label: '收银台',
+            cx: 0.92,
+            cy: 5.55,
+            w: 1.52,
+            h: 0.50,
+            rot: 0,
+          },
+
+          // Left Dining Tables (餐桌 x3)
+          {
+            id: 'dining_1',
+            kind: 'diningTable',
+            label: '餐桌',
+            cx: 0.90,
+            cy: 4.15,
+            w: 1.15,
+            h: 0.65,
+            rot: 0,
+          },
+          {
+            id: 'dining_2',
+            kind: 'diningTable',
+            label: '餐桌',
+            cx: 0.90,
+            cy: 2.75,
+            w: 1.15,
+            h: 0.65,
+            rot: 0,
+          },
+          {
+            id: 'dining_3',
+            kind: 'diningTable',
+            label: '餐桌',
+            cx: 0.90,
+            cy: 1.35,
+            w: 1.15,
+            h: 0.65,
+            rot: 0,
+          },
+
+          // Center Aisle Ceiling Fans (吊扇 x3)
+          {
+            id: 'fan_1',
+            kind: 'fan',
+            label: '吊扇',
+            cx: 2.02,
+            cy: 4.75,
+            w: 0.62,
+            h: 0.62,
+            rot: 0,
+          },
+          {
+            id: 'fan_2',
+            kind: 'fan',
+            label: '吊扇',
+            cx: 2.02,
+            cy: 3.35,
+            w: 0.62,
+            h: 0.62,
+            rot: 0,
+          },
+          {
+            id: 'fan_3',
+            kind: 'fan',
+            label: '吊扇',
+            cx: 2.02,
+            cy: 1.95,
+            w: 0.62,
+            h: 0.62,
+            rot: 0,
+          },
+
+          // Right Side Stools (凳 x2) & Tables (桌 x3)
+          {
+            id: 'stool_1',
+            kind: 'stool',
+            label: '凳',
+            cx: 2.68,
+            cy: 4.95,
+            w: 0.38,
+            h: 0.38,
+            rot: 0,
+          },
+          {
+            id: 'stool_2',
+            kind: 'stool',
+            label: '凳',
+            cx: 2.68,
+            cy: 3.95,
+            w: 0.38,
+            h: 0.38,
+            rot: 0,
+          },
+          {
+            id: 'right_table_1',
+            kind: 'sideTable',
+            label: '桌',
+            cx: 3.26,
+            cy: 4.30,
+            w: 0.48,
+            h: 2.25,
+            rot: 0,
+          },
+          {
+            id: 'right_table_2',
+            kind: 'sideTable',
+            label: '桌',
+            cx: 3.18,
+            cy: 2.35,
+            w: 0.56,
+            h: 0.62,
+            rot: 0,
+          },
+          {
+            id: 'right_table_3',
+            kind: 'sideTable',
+            label: '桌',
+            cx: 3.18,
+            cy: 1.35,
+            w: 0.56,
+            h: 0.62,
+            rot: 0,
+          },
+
+          // Electrical Box (电箱)
+          {
+            id: 'elec_box_1',
+            kind: 'elecBox',
+            label: '电箱',
+            cx: 3.24,
+            cy: 0.42,
+            w: 0.52,
+            h: 0.36,
+            rot: 0,
+          },
+
+          // 12 "电" Power Points (各个“电”点位)
+          { id: 'pwr_1', kind: 'power', label: '电', cx: 3.08, cy: 11.90, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_2', kind: 'power', label: '电', cx: 0.14, cy: 9.55, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_3', kind: 'power', label: '电', cx: 2.02, cy: 10.48, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_4', kind: 'power', label: '电', cx: 3.55, cy: 10.25, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_5', kind: 'power', label: '电', cx: 2.52, cy: 7.26, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_6', kind: 'power', label: '电', cx: 2.52, cy: 6.54, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_7', kind: 'power', label: '电', cx: 0.14, cy: 5.55, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_8', kind: 'power', label: '电', cx: 0.14, cy: 3.45, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_9', kind: 'power', label: '电', cx: 0.14, cy: 1.35, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_10', kind: 'power', label: '电', cx: 3.55, cy: 3.70, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_11', kind: 'power', label: '电', cx: 2.75, cy: 0.35, w: 0.32, h: 0.32, rot: 0 },
+          { id: 'pwr_12', kind: 'power', label: '电', cx: 3.78, cy: 0.42, w: 0.32, h: 0.32, rot: 0 },
+        ];
+      }
+
+      const PRESETS = {
+        diningTable: { kind: 'diningTable', label: '餐桌', w: 1.15, h: 0.65 },
+        sideTable:   { kind: 'sideTable',   label: '桌',   w: 0.60, h: 0.60 },
+        stool:       { kind: 'stool',       label: '凳',   w: 0.38, h: 0.38 },
+        cashier:     { kind: 'cashier',     label: '收银台', w: 1.50, h: 0.50 },
+        shelf:       { kind: 'shelf',       label: '货架', w: 1.60, h: 0.50 },
+        fridge:      { kind: 'fridge',      label: '冰箱', w: 0.90, h: 0.60 },
+        prepTable:   { kind: 'prepTable',   label: '操作台', w: 1.30, h: 0.60 },
+        sink:        { kind: 'sink',        label: '洗手池', w: 1.10, h: 0.60 },
+        stove:       { kind: 'stove',       label: '灶台 380V', w: 0.65, h: 1.40 },
+        partition:   { kind: 'partition',   label: '隔断', w: 2.00, h: 0.40 },
+        serving:     { kind: 'serving',     label: '出餐台', w: 2.00, h: 0.42 },
+        fan:         { kind: 'fan',         label: '吊扇', w: 0.65, h: 0.65 },
+        elecBox:     { kind: 'elecBox',     label: '电箱', w: 0.50, h: 0.35 },
+        power:       { kind: 'power',       label: '电',   w: 0.32, h: 0.32 },
+      };
+
+      const KIND_LABELS = {
+        shelf: '货架',
+        sink: '洗手池',
+        fridge: '冰箱',
+        prepTable: '操作台',
+        stove: '灶台',
+        vat: '圆桶/水池',
+        partition: '隔断',
+        serving: '出餐台',
+        cashier: '收银台',
+        diningTable: '餐桌',
+        sideTable: '右侧桌',
+        stool: '凳子',
+        fan: '吊扇',
+        elecBox: '电箱',
+        power: '“电”点位',
+      };
+
+      // ============================================================
+      // 3. Application State & History
+      // ============================================================
+      const state = {
+        items: [],
+        selectedId: null,
+        showDimensions: true,
+        snapEnabled: true,
+        viewBox: { x: -460, y: -960, w: 900, h: 1080 },
+        history: [],
+        historyIndex: -1,
+      };
+
+      const svg = document.getElementById('editorSvg');
+      const container = document.getElementById('canvasContainer');
+      const gridLayer = document.getElementById('gridLayer');
+      const detailLayer = document.getElementById('detailDiagramLayer');
+      const archLayer = document.getElementById('architectureLayer');
+      const dimsLayer = document.getElementById('dimensionsLayer');
+      const itemsLayer = document.getElementById('itemsLayer');
+      const selLayer = document.getElementById('selectionLayer');
+
+      const btnToggleDims = document.getElementById('btnToggleDims');
+      const btnToggleSnap = document.getElementById('btnToggleSnap');
+      const btnUndo = document.getElementById('btnUndo');
+      const btnRedo = document.getElementById('btnRedo');
+      const btnRotateSelected = document.getElementById('btnRotateSelected');
+      const zoomText = document.getElementById('zoomText');
+      const cursorMeterText = document.getElementById('cursorMeterText');
+      const selectionStatusText = document.getElementById('selectionStatusText');
+
+      // Inspector DOM
+      const inspectorEmpty = document.getElementById('inspectorEmpty');
+      const inspectorForm = document.getElementById('inspectorForm');
+      const itemTypeBadge = document.getElementById('itemTypeBadge');
+      const propLabel = document.getElementById('propLabel');
+      const propX = document.getElementById('propX');
+      const propY = document.getElementById('propY');
+      const propW = document.getElementById('propW');
+      const propH = document.getElementById('propH');
+      const propRot = document.getElementById('propRot');
+
+      // Toast helper
+      let toastTimer = null;
+      function showToast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+      }
+
+      // Snap helper (0.1m precision)
+      const round2 = (v) => Math.round(v * 100) / 100;
+      const snapVal = (v, forceOff = false) =>
+        state.snapEnabled && !forceOff ? Math.round(v * 10) / 10 : round2(v);
+
+      function saveStorage() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
+        } catch (_) {}
+      }
+
+      function pushHistory() {
+        const snapshot = JSON.stringify(state.items);
+        if (
+          state.historyIndex >= 0 &&
+          state.history[state.historyIndex] === snapshot
+        ) {
+          return;
+        }
+        state.history = state.history.slice(0, state.historyIndex + 1);
+        state.history.push(snapshot);
+        if (state.history.length > 60) state.history.shift();
+        state.historyIndex = state.history.length - 1;
+        updateHistoryButtons();
+        saveStorage();
+      }
+
+      function updateHistoryButtons() {
+        btnUndo.disabled = state.historyIndex <= 0;
+        btnRedo.disabled = state.historyIndex >= state.history.length - 1;
+      }
+
+      function undo() {
+        if (state.historyIndex <= 0) return;
+        state.historyIndex--;
+        state.items = JSON.parse(state.history[state.historyIndex]);
+        if (!state.items.some((it) => it.id === state.selectedId)) {
+          state.selectedId = null;
+        }
+        updateHistoryButtons();
+        saveStorage();
+        renderItems();
+        renderSelection();
+        syncInspector();
+        showToast('已撤销');
+      }
+
+      function redo() {
+        if (state.historyIndex >= state.history.length - 1) return;
+        state.historyIndex++;
+        state.items = JSON.parse(state.history[state.historyIndex]);
+        if (!state.items.some((it) => it.id === state.selectedId)) {
+          state.selectedId = null;
+        }
+        updateHistoryButtons();
+        saveStorage();
+        renderItems();
+        renderSelection();
+        syncInspector();
+        showToast('已重做');
+      }
+
+      // ============================================================
+      // 4. SVG Helpers
+      // ============================================================
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+      function el(tag, attrs = {}, parent = null) {
+        const node = document.createElementNS(SVG_NS, tag);
+        for (const [k, v] of Object.entries(attrs)) {
+          node.setAttribute(k, v);
+        }
+        if (parent) parent.appendChild(node);
+        return node;
+      }
+
+      function buildDefs() {
+        const defs = document.getElementById('svgDefs');
+        defs.innerHTML = '';
+
+        // 0.1m & 1.0m SVG pattern grid
+        const pMinor = el('pattern', {
+          id: 'gridMinor',
+          width: SCALE * 0.1,
+          height: SCALE * 0.1,
+          patternUnits: 'userSpaceOnUse',
+        }, defs);
+        el('path', {
+          d: `M ${SCALE * 0.1} 0 L 0 0 0 ${SCALE * 0.1}`,
+          fill: 'none',
+          stroke: '#e2e8f0',
+          'stroke-width': 0.6,
+        }, pMinor);
+
+        const pMajor = el('pattern', {
+          id: 'gridMajor',
+          width: SCALE,
+          height: SCALE,
+          patternUnits: 'userSpaceOnUse',
+        }, defs);
+        el('rect', {
+          width: SCALE,
+          height: SCALE,
+          fill: 'url(#gridMinor)',
+        }, pMajor);
+        el('path', {
+          d: `M ${SCALE} 0 L 0 0 0 ${SCALE}`,
+          fill: 'none',
+          stroke: '#cbd5e1',
+          'stroke-width': 1.1,
+        }, pMajor);
+
+        // Arrow marker for CAD dimensions
+        const marker = el('marker', {
+          id: 'dimArrow',
+          viewBox: '0 0 10 10',
+          refX: 9,
+          refY: 5,
+          markerWidth: 6,
+          markerHeight: 6,
+          orient: 'auto-start-reverse',
+        }, defs);
+        el('path', {
+          d: 'M 1 2 L 9 5 L 1 8 z',
+          fill: '#2563eb',
+        }, marker);
+      }
+
+      // ============================================================
+      // 5. Render Static Background Layers
+      // ============================================================
+      function renderGrid() {
+        gridLayer.innerHTML = '';
+        // Huge drafting sheet covering -10m..+10m X, -4m..+20m Y
+        el('rect', {
+          x: -12 * SCALE,
+          y: -20 * SCALE,
+          width: 24 * SCALE,
+          height: 24 * SCALE,
+          fill: '#ffffff',
+        }, gridLayer);
+
+        el('rect', {
+          x: -12 * SCALE,
+          y: -20 * SCALE,
+          width: 24 * SCALE,
+          height: 24 * SCALE,
+          fill: 'url(#gridMajor)',
+        }, gridLayer);
+
+        // Subtle meter ruler ticks along X=0 and Y=0 main axes
+        const rulerG = el('g', { opacity: '0.55' }, gridLayer);
+        for (let m = 0; m <= 15; m++) {
+          el('text', {
+            x: -14,
+            y: toSvgY(m) + 3,
+            'font-size': 9,
+            'text-anchor': 'end',
+            fill: '#94a3b8',
+            'font-family': 'ui-monospace, monospace',
+          }, rulerG).textContent = `${m}m`;
+        }
+        for (let m = 0; m <= 4; m++) {
+          el('text', {
+            x: toSvgX(m),
+            y: 16,
+            'font-size': 9,
+            'text-anchor': 'middle',
+            fill: '#94a3b8',
+            'font-family': 'ui-monospace, monospace',
+          }, rulerG).textContent = `${m}m`;
+        }
+      }
+
+      // Draw a CAD dimension line between (x1, y1) and (x2, y2) in meters, offset by perp distance
+      function drawDimLine(parent, p1, p2, offsetMeters, labelText, opts = {}) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 1e-6) return;
+        const nx = -dy / len;
+        const ny = dx / len;
+
+        const a1 = { x: p1.x + nx * offsetMeters, y: p1.y + ny * offsetMeters };
+        const a2 = { x: p2.x + nx * offsetMeters, y: p2.y + ny * offsetMeters };
+        const ext = offsetMeters >= 0 ? 0.14 : -0.14;
+
+        const g = el('g', { class: 'cad-dim' }, parent);
+
+        // Witness extension lines
+        el('line', {
+          x1: toSvgX(p1.x), y1: toSvgY(p1.y),
+          x2: toSvgX(a1.x + nx * ext), y2: toSvgY(a1.y + ny * ext),
+          stroke: '#3b82f6', 'stroke-width': 1, 'stroke-dasharray': opts.dashed ? '3,2' : 'none', opacity: 0.75,
+        }, g);
+        el('line', {
+          x1: toSvgX(p2.x), y1: toSvgY(p2.y),
+          x2: toSvgX(a2.x + nx * ext), y2: toSvgY(a2.y + ny * ext),
+          stroke: '#3b82f6', 'stroke-width': 1, 'stroke-dasharray': opts.dashed ? '3,2' : 'none', opacity: 0.75,
+        }, g);
+
+        // Main arrow line
+        el('line', {
+          x1: toSvgX(a1.x), y1: toSvgY(a1.y),
+          x2: toSvgX(a2.x), y2: toSvgY(a2.y),
+          stroke: '#2563eb',
+          'stroke-width': 1.2,
+          'marker-start': 'url(#dimArrow)',
+          'marker-end': 'url(#dimArrow)',
+        }, g);
+
+        // Label centered with white halo
+        const midX = toSvgX((a1.x + a2.x) / 2);
+        const midY = toSvgY((a1.y + a2.y) / 2);
+        let deg = (Math.atan2(-(a2.y - a1.y), a2.x - a1.x) * 180) / Math.PI;
+        if (deg > 90 || deg < -90) deg += 180;
+
+        const tg = el('g', { transform: `translate(${midX}, ${midY}) rotate(${deg})` }, g);
+        el('rect', {
+          x: -22, y: -9, width: 44, height: 16, rx: 3,
+          fill: '#ffffff', opacity: 0.92,
+        }, tg);
+        const txt = el('text', {
+          x: 0, y: 3,
+          'text-anchor': 'middle',
+          'font-size': 12,
+          'font-weight': '600',
+          fill: '#1d4ed8',
+        }, tg);
+        txt.textContent = labelText;
+      }
+
+      // Render Left Side "隔断" Detail Elevation (3.67m x 4.7m)
+      function renderDetailDiagram() {
+        detailLayer.innerHTML = '';
+
+        // Place cleanly to the left of main shop: x ∈ [-5.30, -1.63], y ∈ [9.20, 13.90]
+        const ox = -5.35;
+        const oy = 9.20;
+        const totalW = 3.67;
+        const totalH = 4.70;
+        const frameT = 0.10;
+        const innerH = 2.50;
+        const glassBayW = 2.40;
+        const doorBayW = 1.00;
+        const midPostW = totalW - 2 * frameT - glassBayW - doorBayW; // 0.07m
+
+        const g = el('g', { id: 'partitionDetailGroup' }, detailLayer);
+
+        // Title "隔断:"
+        const title = el('text', {
+          x: toSvgX(ox - 0.1),
+          y: toSvgY(oy + totalH + 0.35),
+          'font-size': 18,
+          'font-weight': '700',
+          fill: '#0f172a',
+        }, g);
+        title.textContent = '隔断:';
+
+        // Outer border (gray concrete frame)
+        el('rect', {
+          x: toSvgX(ox),
+          y: toSvgY(oy + totalH),
+          width: totalW * SCALE,
+          height: totalH * SCALE,
+          fill: '#cbd5e1',
+          stroke: '#1e293b',
+          'stroke-width': 2,
+        }, g);
+
+        // Upper Cement Board (2.5m -> 4.7m)
+        const upperH = totalH - frameT - innerH;
+        el('rect', {
+          x: toSvgX(ox + frameT),
+          y: toSvgY(oy + totalH - frameT),
+          width: (totalW - 2 * frameT) * SCALE,
+          height: upperH * SCALE,
+          fill: '#f8fafc',
+          stroke: '#334155',
+          'stroke-width': 1.2,
+        }, g);
+        el('text', {
+          x: toSvgX(ox + totalW / 2),
+          y: toSvgY(oy + innerH + upperH / 2) + 6,
+          'text-anchor': 'middle',
+          'font-size': 16,
+          'font-weight': '600',
+          fill: '#0f172a',
+        }, g).textContent = '水泥板';
+
+        // Lower Left Bay (2.4m × 2.5m):
+        //   Bottom Cement Board (0.92m) + Serving Window 出餐口 (0.40m) + Glass 玻璃 (1.18m)
+        const bayX = ox + frameT;
+        const botCementH = 0.88;
+        const passH = 0.38;
+        const glassH = innerH - botCementH - passH;
+
+        // Bottom cement board
+        el('rect', {
+          x: toSvgX(bayX),
+          y: toSvgY(oy + botCementH),
+          width: glassBayW * SCALE,
+          height: botCementH * SCALE,
+          fill: '#f1f5f9',
+          stroke: '#334155',
+          'stroke-width': 1.2,
+        }, g);
+        el('text', {
+          x: toSvgX(bayX + glassBayW / 2),
+          y: toSvgY(oy + botCementH / 2) + 5,
+          'text-anchor': 'middle',
+          'font-size': 15,
+          'font-weight': '600',
+          fill: '#0f172a',
+        }, g).textContent = '水泥板';
+
+        // Glass panel (玻璃)
+        el('rect', {
+          x: toSvgX(bayX),
+          y: toSvgY(oy + innerH),
+          width: glassBayW * SCALE,
+          height: (glassH + passH) * SCALE,
+          fill: 'rgba(219, 234, 254, 0.36)',
+          stroke: '#334155',
+          'stroke-width': 1.2,
+        }, g);
+        // Glass reflection diagonal strokes
+        const gx1 = bayX + 0.22, gy1 = oy + botCementH + passH + 0.22;
+        el('line', {
+          x1: toSvgX(gx1), y1: toSvgY(gy1),
+          x2: toSvgX(gx1 + 0.28), y2: toSvgY(gy1 + 0.42),
+          stroke: '#64748b', 'stroke-width': 1.1,
+        }, g);
+        el('line', {
+          x1: toSvgX(gx1 + 0.12), y1: toSvgY(gy1 - 0.04),
+          x2: toSvgX(gx1 + 0.34), y2: toSvgY(gy1 + 0.28),
+          stroke: '#64748b', 'stroke-width': 1.1,
+        }, g);
+        const gx2 = bayX + glassBayW - 0.52;
+        el('line', {
+          x1: toSvgX(gx2), y1: toSvgY(gy1),
+          x2: toSvgX(gx2 + 0.28), y2: toSvgY(gy1 + 0.42),
+          stroke: '#64748b', 'stroke-width': 1.1,
+        }, g);
+        el('text', {
+          x: toSvgX(bayX + glassBayW / 2),
+          y: toSvgY(oy + botCementH + passH + glassH / 2) + 5,
+          'text-anchor': 'middle',
+          'font-size': 15,
+          'font-weight': '600',
+          fill: '#0f172a',
+        }, g).textContent = '玻璃';
+
+        // 出餐口 (Serving cutout at bottom center of glass)
+        el('rect', {
+          x: toSvgX(bayX + 0.30),
+          y: toSvgY(oy + botCementH + passH),
+          width: (glassBayW - 0.60) * SCALE,
+          height: passH * SCALE,
+          fill: '#ffffff',
+          stroke: '#334155',
+          'stroke-width': 1.3,
+        }, g);
+        el('text', {
+          x: toSvgX(bayX + glassBayW / 2),
+          y: toSvgY(oy + botCementH + passH / 2) + 4,
+          'text-anchor': 'middle',
+          'font-size': 12,
+          'font-weight': '600',
+          fill: '#0f172a',
+        }, g).textContent = '出餐口';
+
+        // Lower Right Bay: Door (门 1m × 2.5m)
+        const doorX = bayX + glassBayW + midPostW;
+        el('rect', {
+          x: toSvgX(doorX),
+          y: toSvgY(oy + innerH),
+          width: doorBayW * SCALE,
+          height: innerH * SCALE,
+          fill: '#f8fafc',
+          stroke: '#334155',
+          'stroke-width': 1.3,
+        }, g);
+        // Door swing lines (architectural elevation)
+        el('polyline', {
+          points: `${toSvgX(doorX)},${toSvgY(oy)} ${toSvgX(doorX + doorBayW)},${toSvgY(oy + innerH / 2)} ${toSvgX(doorX)},${toSvgY(oy + innerH)}`,
+          fill: 'none',
+          stroke: '#64748b',
+          'stroke-width': 1,
+          'stroke-dasharray': '4,3',
+        }, g);
+        el('text', {
+          x: toSvgX(doorX + doorBayW / 2),
+          y: toSvgY(oy + innerH / 2) + 6,
+          'text-anchor': 'middle',
+          'font-size': 16,
+          'font-weight': '600',
+          fill: '#0f172a',
+        }, g).textContent = '门';
+      }
+
+      // Render Non-Movable Background Architectural Shell (外墙轮廓、大门、右侧门、结构柱)
+      function renderArchitecture() {
+        archLayer.innerHTML = '';
+
+        // 1. Interior Floor Fill
+        const innerPtsStr = INNER_POLY.map((p) => `${toSvgX(p.x)},${toSvgY(p.y)}`).join(' ');
+        el('polygon', {
+          points: innerPtsStr,
+          fill: '#ffffff',
+          stroke: 'none',
+        }, archLayer);
+
+        // 2. Wall Ring (Outer polygon minus Inner polygon via evenodd path)
+        const outerD =
+          'M ' + OUTER_POLY.map((p) => `${toSvgX(p.x)} ${toSvgY(p.y)}`).join(' L ') + ' Z';
+        const innerD =
+          'M ' + INNER_POLY.map((p) => `${toSvgX(p.x)} ${toSvgY(p.y)}`).join(' L ') + ' Z';
+
+        el('path', {
+          d: `${outerD} ${innerD}`,
+          'fill-rule': 'evenodd',
+          fill: '#cbd5e1',
+          stroke: '#1e293b',
+          'stroke-width': 2,
+          'stroke-linejoin': 'miter',
+        }, archLayer);
+
+        // 3. Two Black Structural Pillars at y = 6.90m (Left & Right walls)
+        el('rect', {
+          x: toSvgX(0),
+          y: toSvgY(7.14),
+          width: 0.16 * SCALE,
+          height: 0.48 * SCALE,
+          fill: '#0f172a',
+        }, archLayer);
+        el('rect', {
+          x: toSvgX(3.51),
+          y: toSvgY(7.14),
+          width: 0.16 * SCALE,
+          height: 0.48 * SCALE,
+          fill: '#0f172a',
+        }, archLayer);
+
+        // 4. Bottom-Left Window on bottom wall (x = 0.40m to 1.40m)
+        el('rect', {
+          x: toSvgX(0.42),
+          y: toSvgY(WALL_T),
+          width: 0.98 * SCALE,
+          height: WALL_T * SCALE,
+          fill: '#e0f2fe',
+          stroke: '#1e293b',
+          'stroke-width': 1.2,
+        }, archLayer);
+        el('line', {
+          x1: toSvgX(0.42), y1: toSvgY(WALL_T / 2),
+          x2: toSvgX(1.40), y2: toSvgY(WALL_T / 2),
+          stroke: '#1e293b', 'stroke-width': 1,
+        }, archLayer);
+
+        // 5. Main Entrance Double Door (大门) on bottom wall (x = 1.60m to 2.86m)
+        const doorLeft = 1.60;
+        const doorRight = 2.86;
+        const leafW = (doorRight - doorLeft) / 2; // 0.63m each
+        const doorMid = (doorLeft + doorRight) / 2;
+
+        // Clear wall opening
+        el('rect', {
+          x: toSvgX(doorLeft),
+          y: toSvgY(WALL_T + 0.01),
+          width: (doorRight - doorLeft) * SCALE,
+          height: (WALL_T + 0.02) * SCALE,
+          fill: '#ffffff',
+        }, archLayer);
+
+        // Left door leaf & outward swing arc
+        el('line', {
+          x1: toSvgX(doorLeft), y1: toSvgY(0),
+          x2: toSvgX(doorLeft), y2: toSvgY(-leafW),
+          stroke: '#1e293b', 'stroke-width': 2.2,
+        }, archLayer);
+        el('path', {
+          d: `M ${toSvgX(doorLeft)} ${toSvgY(-leafW)} A ${leafW * SCALE} ${leafW * SCALE} 0 0 0 ${toSvgX(doorMid)} ${toSvgY(0)}`,
+          fill: 'rgba(59, 130, 246, 0.06)',
+          stroke: '#2563eb',
+          'stroke-width': 1.1,
+          'stroke-dasharray': '4,3',
+        }, archLayer);
+
+        // Right door leaf & outward swing arc
+        el('line', {
+          x1: toSvgX(doorRight), y1: toSvgY(0),
+          x2: toSvgX(doorRight), y2: toSvgY(-leafW),
+          stroke: '#1e293b', 'stroke-width': 2.2,
+        }, archLayer);
+        el('path', {
+          d: `M ${toSvgX(doorRight)} ${toSvgY(-leafW)} A ${leafW * SCALE} ${leafW * SCALE} 0 0 1 ${toSvgX(doorMid)} ${toSvgY(0)}`,
+          fill: 'rgba(59, 130, 246, 0.06)',
+          stroke: '#2563eb',
+          'stroke-width': 1.1,
+          'stroke-dasharray': '4,3',
+        }, archLayer);
+
+        el('text', {
+          x: toSvgX(doorMid),
+          y: toSvgY(-0.24),
+          'text-anchor': 'middle',
+          'font-size': 15,
+          'font-weight': '700',
+          fill: '#0f172a',
+        }, archLayer).textContent = '大门';
+
+        // 6. Right-Side Partition Door (右侧门 at y = 6.90m, right 1m span)
+        const rDoorHingeX = 3.53;
+        const rDoorW = 0.92;
+        const rDoorY = 6.90;
+        // Door leaf swinging UP into kitchen
+        el('line', {
+          x1: toSvgX(rDoorHingeX), y1: toSvgY(rDoorY),
+          x2: toSvgX(rDoorHingeX), y2: toSvgY(rDoorY + rDoorW),
+          stroke: '#1e293b', 'stroke-width': 2.2,
+        }, archLayer);
+        el('path', {
+          d: `M ${toSvgX(rDoorHingeX)} ${toSvgY(rDoorY + rDoorW)} A ${rDoorW * SCALE} ${rDoorW * SCALE} 0 0 0 ${toSvgX(rDoorHingeX - rDoorW)} ${toSvgY(rDoorY)}`,
+          fill: 'rgba(59, 130, 246, 0.06)',
+          stroke: '#2563eb',
+          'stroke-width': 1.1,
+          'stroke-dasharray': '4,3',
+        }, archLayer);
+        el('text', {
+          x: toSvgX(rDoorHingeX - 0.42),
+          y: toSvgY(rDoorY - 0.14),
+          'text-anchor': 'middle',
+          'font-size': 15,
+          'font-weight': '700',
+          fill: '#0f172a',
+        }, archLayer).textContent = '门';
+      }
+
+      // Render Architectural Dimensions (toggleable)
+      function renderDimensions() {
+        dimsLayer.innerHTML = '';
+        if (!state.showDimensions) return;
+
+        // Main floorplan outer dimensions
+        // Bottom 3.67m (below 大门)
+        drawDimLine(dimsLayer, PT_A, PT_B, -0.95, '3.67m');
+        // Left 6.9m (0 -> 6.9)
+        drawDimLine(dimsLayer, { x: 0, y: 0 }, { x: 0, y: 6.90 }, 0.55, '6.9m');
+        // Left 5m (6.9 -> 11.9)
+        drawDimLine(dimsLayer, { x: 0, y: 6.90 }, PT_C, 0.55, '5m');
+        // Top-left 2m (C -> P1)
+        drawDimLine(dimsLayer, PT_C, PT_P1, 0.55, '2m');
+        // Top 3.18m (P1 -> P2)
+        drawDimLine(dimsLayer, PT_P1, PT_P2, 0.55, '3.18m');
+        // Top-right 2.55m (P2 -> D)
+        drawDimLine(dimsLayer, PT_P2, PT_D, 0.55, '2.55m');
+
+        // Left Detail Diagram ("隔断:") dimensions
+        const ox = -5.35, oy = 9.20, totalW = 3.67, totalH = 4.70;
+        const frameT = 0.10, innerH = 2.50, glassBayW = 2.40, doorBayW = 1.00;
+        const midPostW = totalW - 2 * frameT - glassBayW - doorBayW;
+
+        drawDimLine(dimsLayer, { x: ox, y: oy + totalH }, { x: ox + totalW, y: oy + totalH }, 0.42, '3.67m');
+        drawDimLine(dimsLayer, { x: ox + totalW, y: oy + totalH }, { x: ox + totalW, y: oy }, 0.45, '4.7m');
+        drawDimLine(dimsLayer, { x: ox, y: oy }, { x: ox, y: oy + innerH }, 0.45, '2.5m');
+        drawDimLine(dimsLayer, { x: ox + frameT, y: oy }, { x: ox + frameT + glassBayW, y: oy }, -0.38, '2.4m');
+        drawDimLine(
+          dimsLayer,
+          { x: ox + frameT + glassBayW + midPostW, y: oy },
+          { x: ox + frameT + glassBayW + midPostW + doorBayW, y: oy },
+          -0.38,
+          '1m'
+        );
+      }
+
+      // ============================================================
+      // 6. Render Interactive Furniture / Equipment Components
+      // ============================================================
+      function renderSingleItemGraphic(item, g) {
+        const wPx = item.w * SCALE;
+        const hPx = item.h * SCALE;
+        const x0 = -wPx / 2;
+        const y0 = -hPx / 2;
+
+        // Subtle hover highlight outline
+        el('rect', {
+          class: 'item-hover-ring',
+          x: x0 - 2,
+          y: y0 - 2,
+          width: wPx + 4,
+          height: hPx + 4,
+          rx: 3,
+          fill: 'none',
+          stroke: '#3b82f6',
+          'stroke-width': 1.5,
+          opacity: 0,
+        }, g);
+
+        switch (item.kind) {
+          case 'shelf': {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx, rx: 2,
+              fill: '#fef3c7', stroke: '#475569', 'stroke-width': 1.5,
+            }, g);
+            // Shelf crossbars
+            const count = Math.max(2, Math.round(Math.max(item.w, item.h) / 0.55));
+            if (wPx >= hPx) {
+              for (let i = 1; i < count; i++) {
+                const lx = x0 + (wPx * i) / count;
+                el('line', { x1: lx, y1: y0, x2: lx, y2: y0 + hPx, stroke: '#94a3b8', 'stroke-width': 0.9 }, g);
+              }
+            } else {
+              for (let i = 1; i < count; i++) {
+                const ly = y0 + (hPx * i) / count;
+                el('line', { x1: x0, y1: ly, x2: x0 + wPx, y2: ly, stroke: '#94a3b8', 'stroke-width': 0.9 }, g);
+              }
+            }
+            addLabel(g, item.label, 12, '#1e293b', wPx < hPx ? -90 : 0);
+            break;
+          }
+
+          case 'sink': {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx, rx: 3,
+              fill: '#e0f2fe', stroke: '#334155', 'stroke-width': 1.5,
+            }, g);
+            // Double basin
+            const pad = 4;
+            const bw = (wPx - pad * 3) / 2;
+            const bh = hPx - pad * 2;
+            if (bw > 6 && bh > 6) {
+              el('rect', { x: x0 + pad, y: y0 + pad, width: bw, height: bh, rx: 3, fill: '#bae6fd', stroke: '#64748b', 'stroke-width': 1 }, g);
+              el('rect', { x: x0 + pad * 2 + bw, y: y0 + pad, width: bw, height: bh, rx: 3, fill: '#bae6fd', stroke: '#64748b', 'stroke-width': 1 }, g);
+              el('circle', { cx: x0 + pad + bw / 2, cy: 0, r: 2.5, fill: '#475569' }, g);
+              el('circle', { cx: x0 + pad * 2 + bw * 1.5, cy: 0, r: 2.5, fill: '#475569' }, g);
+            }
+            addLabel(g, item.label, 12, '#0f172a');
+            break;
+          }
+
+          case 'fridge': {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx, rx: 2,
+              fill: '#e2e8f0', stroke: '#1e293b', 'stroke-width': 1.6,
+            }, g);
+            el('rect', {
+              x: x0 + 3, y: y0 + 3, width: Math.max(2, wPx - 6), height: Math.max(2, hPx - 6),
+              fill: 'none', stroke: '#94a3b8', 'stroke-width': 0.9,
+            }, g);
+            addLabel(g, item.label, 12, '#0f172a');
+            break;
+          }
+
+          case 'prepTable': {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx, rx: 2,
+              fill: '#f1f5f9', stroke: '#1e293b', 'stroke-width': 1.5,
+            }, g);
+            addLabel(g, item.label, 12, '#0f172a');
+            break;
+          }
+
+          case 'stove': {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx, rx: 2,
+              fill: '#fff7ed', stroke: '#9a3412', 'stroke-width': 1.6,
+            }, g);
+            // 4 burner rings (2x2)
+            const r = Math.min(wPx, hPx) * 0.16;
+            const bx = wPx * 0.22;
+            const by = hPx * 0.22;
+            [[-bx, -by], [bx, -by], [-bx, by], [bx, by]].forEach(([cx, cy]) => {
+              el('circle', { cx, cy, r, fill: 'none', stroke: '#c2410c', 'stroke-width': 1.2 }, g);
+              el('circle', { cx, cy, r: r * 0.45, fill: 'none', stroke: '#c2410c', 'stroke-width': 1 }, g);
+            });
+            addLabel(g, item.label, 10, '#7c2d12');
+            break;
+          }
+
+          case 'vat': {
+            const rx = wPx / 2;
+            const ry = hPx / 2;
+            el('ellipse', {
+              cx: 0, cy: 0, rx, ry,
+              fill: '#f1f5f9', stroke: '#334155', 'stroke-width': 1.5,
+            }, g);
+            el('ellipse', {
+              cx: 0, cy: 0, rx: rx * 0.72, ry: ry * 0.72,
+              fill: '#e0f2fe', stroke: '#64748b', 'stroke-width': 1.1,
+            }, g);
+            break;
+          }
+
+          case 'partition': {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx,
+              fill: '#f8fafc', stroke: '#0f172a', 'stroke-width': 1.8,
+            }, g);
+            // T-pillar mark on left inside partition
+            el('path', {
+              d: `M ${x0 + 10} ${-3} L ${x0 + 18} ${-3} M ${x0 + 14} ${-3} L ${x0 + 14} ${5}`,
+              stroke: '#334155', 'stroke-width': 1.4,
+            }, g);
+            addLabel(g, item.label, 12, '#0f172a');
+            break;
+          }
+
+          case 'serving':
+          case 'cashier': {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx, rx: 2,
+              fill: item.kind === 'cashier' ? '#ede9fe' : '#ecfeff',
+              stroke: '#334155', 'stroke-width': 1.5,
+            }, g);
+            addLabel(g, item.label, 12, '#0f172a');
+            break;
+          }
+
+          case 'diningTable':
+          case 'sideTable': {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx, rx: 3,
+              fill: '#fefce8', stroke: '#334155', 'stroke-width': 1.5,
+            }, g);
+            addLabel(g, item.label, 12, '#0f172a');
+            break;
+          }
+
+          case 'stool': {
+            el('ellipse', {
+              cx: 0, cy: 0, rx: wPx / 2, ry: hPx / 2,
+              fill: '#f1f5f9', stroke: '#334155', 'stroke-width': 1.5,
+            }, g);
+            el('ellipse', {
+              cx: 0, cy: 0, rx: wPx * 0.36, ry: hPx * 0.36,
+              fill: 'none', stroke: '#94a3b8', 'stroke-width': 1,
+            }, g);
+            addLabel(g, item.label, 11, '#0f172a');
+            break;
+          }
+
+          case 'fan': {
+            const rad = Math.min(wPx, hPx) / 2;
+            el('circle', { cx: 0, cy: 0, r: rad * 0.22, fill: '#f8fafc', stroke: '#475569', 'stroke-width': 1.3 }, g);
+            // 4 blades at 45° diagonals
+            [45, 135, 225, 315].forEach((ang) => {
+              const bg = el('g', { transform: `rotate(${ang})` }, g);
+              el('ellipse', {
+                cx: rad * 0.56, cy: 0, rx: rad * 0.38, ry: rad * 0.14,
+                fill: '#f1f5f9', stroke: '#475569', 'stroke-width': 1.2,
+              }, bg);
+            });
+            break;
+          }
+
+          case 'elecBox': {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx, rx: 2,
+              fill: '#fef2f2', stroke: '#991b1b', 'stroke-width': 1.6,
+            }, g);
+            addLabel(g, item.label, 11, '#7f1d1d');
+            break;
+          }
+
+          case 'power': {
+            el('circle', {
+              cx: 0, cy: 0, r: Math.min(wPx, hPx) / 2,
+              fill: '#eff6ff', stroke: '#2563eb', 'stroke-width': 1.5,
+            }, g);
+            addLabel(g, item.label, 11, '#1d4ed8');
+            break;
+          }
+
+          default: {
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx, rx: 2,
+              fill: '#f1f5f9', stroke: '#334155', 'stroke-width': 1.5,
+            }, g);
+            addLabel(g, item.label, 11, '#0f172a');
+          }
+        }
+      }
+
+      function addLabel(parent, text, fontSize, fill, rotateDeg = 0) {
+        if (!text) return;
+        const t = el('text', {
+          x: 0,
+          y: fontSize * 0.35,
+          'text-anchor': 'middle',
+          'font-size': fontSize,
+          'font-weight': '600',
+          fill,
+          transform: rotateDeg ? `rotate(${rotateDeg})` : '',
+          style: 'pointer-events:none;',
+        }, parent);
+        t.textContent = text;
+      }
+
+      function renderItems() {
+        itemsLayer.innerHTML = '';
+        for (const item of state.items) {
+          const g = el('g', {
+            class: 'interactive-item',
+            'data-id': item.id,
+            transform: `translate(${toSvgX(item.cx)}, ${toSvgY(item.cy)}) rotate(${item.rot})`,
+          }, itemsLayer);
+          renderSingleItemGraphic(item, g);
+        }
+        selectionStatusText.textContent = `组件数: ${state.items.length}`;
+        if (typeof renderAreaBoard === 'function') {
+          renderAreaBoard();
+        }
+        if (typeof rebuild3DFurniture === 'function' && viewMode === '3d') {
+          rebuild3DFurniture();
+        }
+      }
+
+      // ============================================================
+      // 7. Selection Overlay (Highlight Box, 8 Resize Handles, Rotate Handle, Live Meter Readout)
+      // ============================================================
+      function renderSelection() {
+        selLayer.innerHTML = '';
+        const item = state.items.find((it) => it.id === state.selectedId);
+        btnRotateSelected.disabled = !item;
+        if (!item) return;
+
+        const wPx = item.w * SCALE;
+        const hPx = item.h * SCALE;
+        const x0 = -wPx / 2;
+        const y0 = -hPx / 2;
+
+        const g = el('g', {
+          transform: `translate(${toSvgX(item.cx)}, ${toSvgY(item.cy)}) rotate(${item.rot})`,
+        }, selLayer);
+
+        // Highlight dashed border
+        el('rect', {
+          x: x0 - 2,
+          y: y0 - 2,
+          width: wPx + 4,
+          height: hPx + 4,
+          fill: 'rgba(37, 99, 235, 0.07)',
+          stroke: '#2563eb',
+          'stroke-width': 2,
+          'stroke-dasharray': '5,3',
+          style: 'pointer-events:none;',
+        }, g);
+
+        // Rotation stem & handle above top edge
+        el('line', {
+          x1: 0, y1: y0 - 2,
+          x2: 0, y2: y0 - 22,
+          stroke: '#2563eb', 'stroke-width': 1.5,
+        }, g);
+        el('circle', {
+          class: 'rotate-handle',
+          'data-action': 'rotate',
+          cx: 0, cy: y0 - 24, r: 5.5,
+        }, g);
+
+        // 8 Resize Handles
+        const handles = [
+          { hx: -1, hy: -1, cursor: 'nwse-resize' },
+          { hx:  0, hy: -1, cursor: 'ns-resize' },
+          { hx:  1, hy: -1, cursor: 'nesw-resize' },
+          { hx:  1, hy:  0, cursor: 'ew-resize' },
+          { hx:  1, hy:  1, cursor: 'nwse-resize' },
+          { hx:  0, hy:  1, cursor: 'ns-resize' },
+          { hx: -1, hy:  1, cursor: 'nesw-resize' },
+          { hx: -1, hy:  0, cursor: 'ew-resize' },
+        ];
+
+        for (const h of handles) {
+          const px = h.hx * (wPx / 2);
+          const py = h.hy * (hPx / 2);
+          el('rect', {
+            class: 'resize-handle',
+            'data-action': 'resize',
+            'data-hx': h.hx,
+            'data-hy': h.hy,
+            x: px - 4,
+            y: py - 4,
+            width: 8,
+            height: 8,
+            rx: 1.5,
+            style: `cursor:${h.cursor};`,
+          }, g);
+        }
+
+        // Live meter badge (always upright in world space below the selected item)
+        const rad = (item.rot * Math.PI) / 180;
+        const halfDiagY = (Math.abs(item.w * Math.sin(rad)) + Math.abs(item.h * Math.cos(rad))) / 2;
+        const badgeY = toSvgY(item.cy) + halfDiagY * SCALE + 18;
+        const badgeX = toSvgX(item.cx);
+
+        const bg = el('g', {
+          transform: `translate(${badgeX}, ${badgeY})`,
+          style: 'pointer-events:none;',
+        }, selLayer);
+        const textVal = `${item.w.toFixed(2)}m × ${item.h.toFixed(2)}m · ${Math.round(item.rot)}°`;
+        const bw = textVal.length * 6.8 + 14;
+        el('rect', {
+          x: -bw / 2, y: -11, width: bw, height: 20, rx: 5,
+          fill: '#0f172a', opacity: 0.9,
+        }, bg);
+        el('text', {
+          x: 0, y: 3,
+          'text-anchor': 'middle',
+          'font-size': 11,
+          'font-weight': '600',
+          fill: '#ffffff',
+          'font-family': 'ui-monospace, monospace',
+        }, bg).textContent = textVal;
+      }
+
+      // ============================================================
+      // 8. Inspector Synchronization
+      // ============================================================
+      function syncInspector() {
+        const item = state.items.find((it) => it.id === state.selectedId);
+        if (!item) {
+          inspectorEmpty.style.display = 'block';
+          inspectorForm.style.display = 'none';
+          itemTypeBadge.textContent = '未选中';
+          return;
+        }
+        if (typeof switchSidebarTab === 'function') {
+          switchSidebarTab('props');
+        }
+        inspectorEmpty.style.display = 'none';
+        inspectorForm.style.display = 'flex';
+        itemTypeBadge.textContent = KIND_LABELS[item.kind] || item.kind;
+
+        if (document.activeElement !== propLabel) propLabel.value = item.label;
+        if (document.activeElement !== propX) propX.value = item.cx.toFixed(2);
+        if (document.activeElement !== propY) propY.value = item.cy.toFixed(2);
+        if (document.activeElement !== propW) propW.value = item.w.toFixed(2);
+        if (document.activeElement !== propH) propH.value = item.h.toFixed(2);
+        if (document.activeElement !== propRot) propRot.value = Math.round(item.rot);
+      }
+
+      // Inspector live editing
+      propLabel.addEventListener('input', () => {
+        const item = state.items.find((it) => it.id === state.selectedId);
+        if (!item) return;
+        item.label = propLabel.value;
+        renderItems();
+        renderSelection();
+      });
+      propLabel.addEventListener('change', pushHistory);
+
+      function bindNumericInput(inputEl, prop, minVal = -999) {
+        inputEl.addEventListener('change', () => {
+          const item = state.items.find((it) => it.id === state.selectedId);
+          if (!item) return;
+          let v = parseFloat(inputEl.value);
+          if (Number.isNaN(v)) return;
+          v = Math.max(minVal, v);
+          item[prop] = prop === 'rot' ? ((v % 360) + 360) % 360 : round2(v);
+          renderItems();
+          renderSelection();
+          syncInspector();
+          pushHistory();
+        });
+      }
+      bindNumericInput(propX, 'cx');
+      bindNumericInput(propY, 'cy');
+      bindNumericInput(propW, 'w', 0.2);
+      bindNumericInput(propH, 'h', 0.2);
+      bindNumericInput(propRot, 'rot');
+
+      function rotateSelected90() {
+        const item = state.items.find((it) => it.id === state.selectedId);
+        if (!item) return;
+        item.rot = (Math.round(item.rot) + 90) % 360;
+        renderItems();
+        renderSelection();
+        syncInspector();
+        pushHistory();
+      }
+
+      document.getElementById('btnPropRotate90').addEventListener('click', rotateSelected90);
+      btnRotateSelected.addEventListener('click', rotateSelected90);
+
+      document.getElementById('btnDuplicate').addEventListener('click', duplicateSelected);
+      document.getElementById('btnDelete').addEventListener('click', deleteSelected);
+      document.getElementById('btnBringFront').addEventListener('click', () => {
+        const idx = state.items.findIndex((it) => it.id === state.selectedId);
+        if (idx < 0 || idx === state.items.length - 1) return;
+        const [item] = state.items.splice(idx, 1);
+        state.items.push(item);
+        renderItems();
+        pushHistory();
+      });
+      document.getElementById('btnSendBack').addEventListener('click', () => {
+        const idx = state.items.findIndex((it) => it.id === state.selectedId);
+        if (idx <= 0) return;
+        const [item] = state.items.splice(idx, 1);
+        state.items.unshift(item);
+        renderItems();
+        pushHistory();
+      });
+
+      function duplicateSelected() {
+        const item = state.items.find((it) => it.id === state.selectedId);
+        if (!item) return;
+        const copy = {
+          ...item,
+          id: `item_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          cx: round2(item.cx + 0.3),
+          cy: round2(item.cy - 0.3),
+        };
+        state.items.push(copy);
+        state.selectedId = copy.id;
+        renderItems();
+        renderSelection();
+        syncInspector();
+        pushHistory();
+        showToast(`已复制: ${copy.label}`);
+      }
+
+      function deleteSelected() {
+        if (!state.selectedId) return;
+        const idx = state.items.findIndex((it) => it.id === state.selectedId);
+        if (idx < 0) return;
+        const removed = state.items.splice(idx, 1)[0];
+        state.selectedId = null;
+        renderItems();
+        renderSelection();
+        syncInspector();
+        pushHistory();
+        showToast(`已删除: ${removed.label}`);
+      }
+
+      // ============================================================
+      // 9. Viewport Pan, Zoom & Pointer Interaction
+      // ============================================================
+      function applyViewBox() {
+        const vb = state.viewBox;
+        svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+        const rect = svg.getBoundingClientRect();
+        if (rect.width > 0) {
+          const pct = Math.round((rect.width / vb.w) * 100);
+          zoomText.textContent = `${pct}%`;
+        }
+      }
+
+      function fitView() {
+        const rect = container.getBoundingClientRect();
+        const aspect = rect.width / Math.max(1, rect.height);
+        // Bounding box covering left 隔断 detail (-5.8m..+4.4m) and height (-1.3m..+15.4m)
+        const worldW = 10.6 * SCALE;
+        const worldH = 16.9 * SCALE;
+        const centerX = -0.65 * SCALE;
+        const centerY = -7.05 * SCALE;
+
+        let vbW, vbH;
+        if (worldW / worldH > aspect) {
+          vbW = worldW;
+          vbH = worldW / aspect;
+        } else {
+          vbH = worldH;
+          vbW = worldH * aspect;
+        }
+        state.viewBox = {
+          x: centerX - vbW / 2,
+          y: centerY - vbH / 2,
+          w: vbW,
+          h: vbH,
+        };
+        applyViewBox();
+      }
+
+      function clientToSvg(clientX, clientY) {
+        const rect = svg.getBoundingClientRect();
+        const vb = state.viewBox;
+        return {
+          x: vb.x + ((clientX - rect.left) / rect.width) * vb.w,
+          y: vb.y + ((clientY - rect.top) / rect.height) * vb.h,
+        };
+      }
+
+      function zoomAt(factor, clientX, clientY) {
+        const rect = svg.getBoundingClientRect();
+        const pt = clientToSvg(
+          clientX ?? rect.left + rect.width / 2,
+          clientY ?? rect.top + rect.height / 2
+        );
+        const newW = Math.min(2400, Math.max(220, state.viewBox.w * factor));
+        const newH = newW * (state.viewBox.h / state.viewBox.w);
+        const rx = (pt.x - state.viewBox.x) / state.viewBox.w;
+        const ry = (pt.y - state.viewBox.y) / state.viewBox.h;
+        state.viewBox = {
+          x: pt.x - rx * newW,
+          y: pt.y - ry * newH,
+          w: newW,
+          h: newH,
+        };
+        applyViewBox();
+      }
+
+      svg.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 1.1 : 0.9;
+        zoomAt(factor, e.clientX, e.clientY);
+      }, { passive: false });
+
+      document.getElementById('btnZoomIn').addEventListener('click', () => zoomAt(0.85));
+      document.getElementById('btnZoomOut').addEventListener('click', () => zoomAt(1.18));
+      document.getElementById('btnFitView').addEventListener('click', fitView);
+
+      // Dragging State
+      let drag = null;
+
+      svg.addEventListener('pointerdown', (e) => {
+        // Close dropdown if open
+        addDropdown.classList.remove('open');
+
+        if (e.button === 1 || (e.button === 0 && e.shiftKey && !e.target.closest('.interactive-item'))) {
+          // Middle-click pan
+          drag = {
+            mode: 'pan',
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            vb0: { ...state.viewBox },
+          };
+          container.classList.add('panning');
+          svg.setPointerCapture(e.pointerId);
+          return;
+        }
+
+        if (e.button !== 0) return;
+
+        const actionEl = e.target.closest('[data-action]');
+        if (actionEl) {
+          const item = state.items.find((it) => it.id === state.selectedId);
+          if (!item) return;
+          const pt = clientToSvg(e.clientX, e.clientY);
+          const action = actionEl.getAttribute('data-action');
+          if (action === 'resize') {
+            drag = {
+              mode: 'resize',
+              itemId: item.id,
+              hx: parseInt(actionEl.getAttribute('data-hx'), 10),
+              hy: parseInt(actionEl.getAttribute('data-hy'), 10),
+              startSvg: pt,
+              orig: { ...item },
+              changed: false,
+            };
+          } else if (action === 'rotate') {
+            drag = {
+              mode: 'rotate',
+              itemId: item.id,
+              orig: { ...item },
+              changed: false,
+            };
+          }
+          svg.setPointerCapture(e.pointerId);
+          e.stopPropagation();
+          return;
+        }
+
+        const itemEl = e.target.closest('.interactive-item');
+        if (itemEl) {
+          const id = itemEl.getAttribute('data-id');
+          state.selectedId = id;
+          renderSelection();
+          syncInspector();
+          const item = state.items.find((it) => it.id === id);
+          const pt = clientToSvg(e.clientX, e.clientY);
+          drag = {
+            mode: 'move',
+            itemId: id,
+            startSvg: pt,
+            orig: { ...item },
+            changed: false,
+          };
+          svg.setPointerCapture(e.pointerId);
+          e.stopPropagation();
+          return;
+        }
+
+        // Clicked empty background -> deselect & allow drag-panning
+        if (state.selectedId !== null) {
+          state.selectedId = null;
+          renderSelection();
+          syncInspector();
+        }
+        drag = {
+          mode: 'pan',
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          vb0: { ...state.viewBox },
+        };
+        container.classList.add('panning');
+        svg.setPointerCapture(e.pointerId);
+      });
+
+      svg.addEventListener('pointermove', (e) => {
+        const pt = clientToSvg(e.clientX, e.clientY);
+        const mx = pt.x / SCALE;
+        const my = -pt.y / SCALE;
+        cursorMeterText.textContent = `指针: X ${mx.toFixed(2)}m, Y ${my.toFixed(2)}m`;
+
+        if (!drag) return;
+
+        if (drag.mode === 'pan') {
+          const rect = svg.getBoundingClientRect();
+          const dxPx = ((e.clientX - drag.startClientX) / rect.width) * drag.vb0.w;
+          const dyPx = ((e.clientY - drag.startClientY) / rect.height) * drag.vb0.h;
+          state.viewBox.x = drag.vb0.x - dxPx;
+          state.viewBox.y = drag.vb0.y - dyPx;
+          applyViewBox();
+          return;
+        }
+
+        const item = state.items.find((it) => it.id === drag.itemId);
+        if (!item) return;
+
+        const forceNoSnap = e.altKey;
+
+        if (drag.mode === 'move') {
+          const dxM = (pt.x - drag.startSvg.x) / SCALE;
+          const dyM_up = -(pt.y - drag.startSvg.y) / SCALE;
+          let newCx = drag.orig.cx + dxM;
+          let newCy = drag.orig.cy + dyM_up;
+
+          if (state.snapEnabled && !forceNoSnap) {
+            if (Math.abs(item.rot % 90) < 0.5) {
+              // Snap left/bottom edge to 0.1m grid for orthogonal items
+              const effW = Math.abs(item.rot % 180) < 0.5 ? item.w : item.h;
+              const effH = Math.abs(item.rot % 180) < 0.5 ? item.h : item.w;
+              const left = Math.round((newCx - effW / 2) * 10) / 10;
+              const bot = Math.round((newCy - effH / 2) * 10) / 10;
+              newCx = round2(left + effW / 2);
+              newCy = round2(bot + effH / 2);
+            } else {
+              newCx = snapVal(newCx);
+              newCy = snapVal(newCy);
+            }
+          } else {
+            newCx = round2(newCx);
+            newCy = round2(newCy);
+          }
+
+          if (newCx !== item.cx || newCy !== item.cy) {
+            item.cx = newCx;
+            item.cy = newCy;
+            drag.changed = true;
+            renderItems();
+            renderSelection();
+            syncInspector();
+          }
+        } else if (drag.mode === 'resize') {
+          const dxMeters = (pt.x - drag.startSvg.x) / SCALE;
+          const dyMetersSvg = (pt.y - drag.startSvg.y) / SCALE;
+          const rad = (drag.orig.rot * Math.PI) / 180;
+          const cos = Math.cos(rad);
+          const sin = Math.sin(rad);
+
+          // Project delta into item's local rotated axes (u right, v down in SVG)
+          const du = dxMeters * cos + dyMetersSvg * sin;
+          const dv = -dxMeters * sin + dyMetersSvg * cos;
+
+          let newW = drag.orig.w;
+          let newH = drag.orig.h;
+
+          if (drag.hx !== 0) {
+            newW = Math.max(0.2, snapVal(drag.orig.w + drag.hx * du, forceNoSnap));
+          }
+          if (drag.hy !== 0) {
+            newH = Math.max(0.2, snapVal(drag.orig.h + drag.hy * dv, forceNoSnap));
+          }
+
+          // Shift center so opposite edge remains anchored
+          const shiftU = drag.hx !== 0 ? (drag.hx * (newW - drag.orig.w)) / 2 : 0;
+          const shiftV = drag.hy !== 0 ? (drag.hy * (newH - drag.orig.h)) / 2 : 0;
+
+          const dWorldX = shiftU * cos - shiftV * sin;
+          const dWorldYSvg = shiftU * sin + shiftV * cos;
+
+          item.w = round2(newW);
+          item.h = round2(newH);
+          item.cx = round2(drag.orig.cx + dWorldX);
+          item.cy = round2(drag.orig.cy - dWorldYSvg);
+          drag.changed = true;
+          renderItems();
+          renderSelection();
+          syncInspector();
+        } else if (drag.mode === 'rotate') {
+          const cxSvg = toSvgX(item.cx);
+          const cySvg = toSvgY(item.cy);
+          let deg = (Math.atan2(pt.y - cySvg, pt.x - cxSvg) * 180) / Math.PI + 90;
+          deg = ((deg % 360) + 360) % 360;
+          if (!forceNoSnap) {
+            // Snap to 15° increments, or 5°
+            const near90 = Math.round(deg / 90) * 90;
+            if (Math.abs(deg - near90) < 6) deg = near90 % 360;
+            else deg = Math.round(deg / 5) * 5;
+          } else {
+            deg = Math.round(deg);
+          }
+          item.rot = deg;
+          drag.changed = true;
+          renderItems();
+          renderSelection();
+          syncInspector();
+        }
+      });
+
+      svg.addEventListener('pointerup', (e) => {
+        if (!drag) return;
+        container.classList.remove('panning');
+        if (drag.changed) pushHistory();
+        drag = null;
+        try { svg.releasePointerCapture(e.pointerId); } catch (_) {}
+      });
+
+      // ============================================================
+      // 10. Toolbar Actions (Add, Toggle Dims/Snap, Reset, Export PNG/SVG)
+      // ============================================================
+      const btnAddMenu = document.getElementById('btnAddMenu');
+      const addDropdown = document.getElementById('addDropdown');
+
+      btnAddMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rect = btnAddMenu.getBoundingClientRect();
+        addDropdown.style.left = `${Math.min(window.innerWidth - 320, rect.left)}px`;
+        addDropdown.classList.toggle('open');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!addDropdown.contains(e.target) && e.target !== btnAddMenu) {
+          addDropdown.classList.remove('open');
+        }
+      });
+
+      addDropdown.querySelectorAll('.palette-item').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const presetKey = btn.getAttribute('data-preset');
+          const p = PRESETS[presetKey];
+          if (!p) return;
+          const newItem = {
+            id: `item_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            kind: p.kind,
+            label: p.label,
+            cx: 1.80,
+            cy: p.kind === 'power' ? 6.00 : 3.50,
+            w: p.w,
+            h: p.h,
+            rot: 0,
+          };
+          state.items.push(newItem);
+          state.selectedId = newItem.id;
+          addDropdown.classList.remove('open');
+          renderItems();
+          renderSelection();
+          syncInspector();
+          pushHistory();
+          showToast(`已新增: ${p.label} (${p.w}m × ${p.h}m)`);
+        });
+      });
+
+      btnToggleDims.addEventListener('click', () => {
+        state.showDimensions = !state.showDimensions;
+        btnToggleDims.classList.toggle('active', state.showDimensions);
+        btnToggleDims.textContent = state.showDimensions ? '📐 尺寸标注: 开' : '📐 尺寸标注: 关';
+        renderDimensions();
+      });
+
+      btnToggleSnap.addEventListener('click', () => {
+        state.snapEnabled = !state.snapEnabled;
+        btnToggleSnap.classList.toggle('active', state.snapEnabled);
+        btnToggleSnap.textContent = state.snapEnabled ? '🧲 0.1m 吸附: 开' : '🧲 0.1m 吸附: 关';
+      });
+
+      btnUndo.addEventListener('click', undo);
+      btnRedo.addEventListener('click', redo);
+
+      document.getElementById('btnReset').addEventListener('click', () => {
+        state.items = createInitialItems();
+        state.selectedId = null;
+        renderItems();
+        renderSelection();
+        syncInspector();
+        renderAreaBoard();
+        switchSidebarTab('area');
+        pushHistory();
+        fitView();
+        showToast('已重置为初始图纸布局');
+      });
+
+      // Build clean export SVG document (excluding transient selection handles)
+      function buildExportSvgString() {
+        const clone = svg.cloneNode(true);
+        // Remove selection handles overlay from export
+        const sel = clone.querySelector('#selectionLayer');
+        if (sel) sel.remove();
+
+        // Set crisp framing viewBox covering both 隔断 detail & main floorplan
+        const exportVb = {
+          x: -5.85 * SCALE,
+          y: -15.45 * SCALE,
+          w: 10.65 * SCALE,
+          h: 16.95 * SCALE,
+        };
+        clone.setAttribute('xmlns', SVG_NS);
+        clone.setAttribute('viewBox', `${exportVb.x} ${exportVb.y} ${exportVb.w} ${exportVb.h}`);
+        clone.setAttribute('width', Math.round(exportVb.w * 2));
+        clone.setAttribute('height', Math.round(exportVb.h * 2));
+        clone.style.fontFamily = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
+
+        return {
+          svgStr: new XMLSerializer().serializeToString(clone),
+          width: Math.round(exportVb.w * 2),
+          height: Math.round(exportVb.h * 2),
+        };
+      }
+
+      document.getElementById('btnExportSvg').addEventListener('click', () => {
+        const { svgStr } = buildExportSvgString();
+        const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `floorplan_${new Date().toISOString().slice(0, 10)}.svg`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('已导出矢量 SVG 文件');
+      });
+
+      document.getElementById('btnExportPng').addEventListener('click', () => {
+        const { svgStr, width, height } = buildExportSvgString();
+        const img = new Image();
+        const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // 2x HD export (~2556 × 4068 px)
+          const scaleFactor = 1.5;
+          canvas.width = Math.round(width * scaleFactor);
+          canvas.height = Math.round(height * scaleFactor);
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+
+          canvas.toBlob((pngBlob) => {
+            if (!pngBlob) return;
+            const pngUrl = URL.createObjectURL(pngBlob);
+            const a = document.createElement('a');
+            a.href = pngUrl;
+            a.download = `floorplan_HD_${new Date().toISOString().slice(0, 10)}.png`;
+            a.click();
+            URL.revokeObjectURL(pngUrl);
+            showToast(`已导出高清 PNG (${canvas.width}×${canvas.height})`);
+          }, 'image/png');
+        };
+        img.src = url;
+      });
+
+      // ============================================================
+      // 11. Keyboard Shortcuts
+      // ============================================================
+      const active3DKeys = new Set();
+      const active3DPad = new Set();
+
+      function keyTo3DMove(key) {
+        switch (key.toLowerCase()) {
+          case 'arrowup':
+          case 'w': return 'fwd';
+          case 'arrowdown':
+          case 's': return 'back';
+          case 'arrowleft':
+          case 'a': return 'left';
+          case 'arrowright':
+          case 'd': return 'right';
+          case 'e':
+          case 'pageup': return 'up';
+          case 'q':
+          case 'c':
+          case 'pagedown': return 'down';
+          default: return null;
+        }
+      }
+
+      window.addEventListener('keydown', (e) => {
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+        if (viewMode === '3d') {
+          const mv = keyTo3DMove(e.key);
+          if (mv) {
+            e.preventDefault();
+            active3DKeys.add(mv);
+            return;
+          }
+        }
+
+        const mod = e.metaKey || e.ctrlKey;
+        if (mod && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) redo();
+          else undo();
+          return;
+        }
+        if (mod && e.key.toLowerCase() === 'd') {
+          e.preventDefault();
+          duplicateSelected();
+          return;
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (state.selectedId) {
+            e.preventDefault();
+            deleteSelected();
+          }
+          return;
+        }
+        if (e.key.toLowerCase() === 'r' && !mod) {
+          if (state.selectedId) {
+            e.preventDefault();
+            rotateSelected90();
+          }
+          return;
+        }
+
+        // Arrow keys nudge by 0.1m in 2D mode
+        const item = state.items.find((it) => it.id === state.selectedId);
+        if (viewMode === '2d' && item && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+          e.preventDefault();
+          const step = e.shiftKey ? 0.5 : 0.1;
+          if (e.key === 'ArrowUp') item.cy = round2(item.cy + step);
+          if (e.key === 'ArrowDown') item.cy = round2(item.cy - step);
+          if (e.key === 'ArrowLeft') item.cx = round2(item.cx - step);
+          if (e.key === 'ArrowRight') item.cx = round2(item.cx + step);
+          renderItems();
+          renderSelection();
+          syncInspector();
+          pushHistory();
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        const mv = keyTo3DMove(e.key);
+        if (mv) active3DKeys.delete(mv);
+      });
+
+      window.addEventListener('blur', () => {
+        active3DKeys.clear();
+        active3DPad.clear();
+      });
+
+      // ============================================================
+      // 11.5 Three.js 3D Architectural Engine (4.7m Ceiling, 20cm Raised Kitchen, Live 2D Sync)
+      // ============================================================
+      let viewMode = '2d'; // '2d' | '3d'
+      const view3dContainer = document.getElementById('view3dContainer');
+      const tabMode2D = document.getElementById('tabMode2D');
+      const tabMode3D = document.getElementById('tabMode3D');
+      const btnCeilingMode = document.getElementById('btnCeilingMode');
+      const btnDragMode3D = document.getElementById('btnDragMode3D');
+      let dragMode3D = 'rotate'; // 'rotate' | 'pan'
+
+      let threeInit = false;
+      let scene3D, camera3D, renderer3D, controls3D;
+      let furnitureGroup3D, ceilingGroup3D, selectionBox3D;
+      let ceilingMode = 'auto'; // 'auto' | 'show' | 'hide'
+      let ceilingMaterials = [];
+      let raycaster3D, pointer3D;
+
+      function createTileTexture(tileColors, groutColor, cellsPerRepeat = 2, linePx = 4) {
+        const size = 256;
+        const c = document.createElement('canvas');
+        c.width = size;
+        c.height = size;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = groutColor;
+        ctx.fillRect(0, 0, size, size);
+
+        const cell = size / cellsPerRepeat;
+        for (let r = 0; r < cellsPerRepeat; r++) {
+          for (let col = 0; col < cellsPerRepeat; col++) {
+            const base = tileColors[(r + col) % tileColors.length];
+            ctx.fillStyle = base;
+            ctx.fillRect(col * cell + linePx / 2, r * cell + linePx / 2, cell - linePx, cell - linePx);
+            // Subtle micro-speckle for ceramic/stone realism
+            ctx.fillStyle = 'rgba(0,0,0,0.025)';
+            for (let s = 0; s < 18; s++) {
+              const sx = col * cell + linePx + ((s * 37 + r * 19) % (cell - linePx * 2));
+              const sy = r * cell + linePx + ((s * 53 + col * 29) % (cell - linePx * 2));
+              ctx.fillRect(sx, sy, 2, 2);
+            }
+          }
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.anisotropy = 4;
+        return tex;
+      }
+
+      function createCementTexture() {
+        const size = 256;
+        const c = document.createElement('canvas');
+        c.width = size;
+        c.height = size;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#9ca3af';
+        ctx.fillRect(0, 0, size, size);
+        // Soft mottled micro-cement strokes
+        for (let i = 0; i < 420; i++) {
+          const x = (i * 73) % size;
+          const y = (i * 137) % size;
+          const r = 6 + (i % 18);
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(15,23,42,0.045)';
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      }
+
+      function makePlanarUVGeometry(shape, scaleX, scaleY) {
+        const geo = new THREE.ShapeGeometry(shape);
+        const pos = geo.attributes.position;
+        const uv = geo.attributes.uv;
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i);
+          const y = pos.getY(i);
+          uv.setXY(i, x / scaleX, y / scaleY);
+        }
+        uv.needsUpdate = true;
+        return geo;
+      }
+
+      // Build a 3D wall segment between 2D floorplan meter points p1 -> p2 (CLOCKWISE around interior)
+      // with height h, base elevation baseY, facing inward (+Z of PlaneGeometry)
+      function createWallPlane(p1, p2, baseY, height, mat, offsetInward = 0.004) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 1e-4) return null;
+        // Inward normal for CW boundary around interior: right-hand normal (dy/len, -dx/len)
+        const nx = dy / len;
+        const ny = -dx / len;
+        const cx = (p1.x + p2.x) / 2 + nx * offsetInward;
+        const cy = (p1.y + p2.y) / 2 + ny * offsetInward;
+
+        const geo = new THREE.PlaneGeometry(len, height);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(cx, baseY + height / 2, -cy);
+        mesh.rotation.y = Math.atan2(dy, dx);
+        mesh.receiveShadow = true;
+        return mesh;
+      }
+
+      // Build solid structural wall prism between outer edge (o1,o2) and inner edge (i1,i2)
+      function createWallPrism(o1, o2, i2, i1, baseY, height, mat) {
+        const shape = new THREE.Shape();
+        shape.moveTo(o1.x, o1.y);
+        shape.lineTo(o2.x, o2.y);
+        shape.lineTo(i2.x, i2.y);
+        shape.lineTo(i1.x, i1.y);
+        shape.closePath();
+
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+        geo.rotateX(-Math.PI / 2);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.y = baseY;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        return mesh;
+      }
+
+      function init3D() {
+        if (threeInit || typeof THREE === 'undefined') return;
+        threeInit = true;
+
+        scene3D = new THREE.Scene();
+        scene3D.background = new THREE.Color('#0f172a');
+
+        const rect = view3dContainer.getBoundingClientRect();
+        const w = Math.max(1, rect.width);
+        const h = Math.max(1, rect.height);
+
+        camera3D = new THREE.PerspectiveCamera(48, w / h, 0.05, 80);
+        renderer3D = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer3D.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer3D.setSize(w, h);
+        renderer3D.shadowMap.enabled = true;
+        renderer3D.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer3D.outputEncoding = THREE.sRGBEncoding;
+        view3dContainer.appendChild(renderer3D.domElement);
+
+        controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+        controls3D.enableDamping = true;
+        controls3D.dampingFactor = 0.08;
+        controls3D.enablePan = true;
+        controls3D.screenSpacePanning = true;
+        controls3D.panSpeed = 1.25;
+        controls3D.rotateSpeed = 0.85;
+        controls3D.minDistance = 0.25;
+        controls3D.maxDistance = 40;
+        controls3D.maxPolarAngle = Math.PI * 0.96;
+
+        raycaster3D = new THREE.Raycaster();
+        pointer3D = new THREE.Vector2();
+
+        // Lighting
+        const hemi = new THREE.HemisphereLight('#f8fafc', '#334155', 0.72);
+        scene3D.add(hemi);
+
+        const dirLight = new THREE.DirectionalLight('#fffbeb', 0.85);
+        dirLight.position.set(8, 14, 6);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.set(2048, 2048);
+        dirLight.shadow.camera.left = -6;
+        dirLight.shadow.camera.right = 8;
+        dirLight.shadow.camera.top = 12;
+        dirLight.shadow.camera.bottom = -16;
+        dirLight.shadow.camera.near = 1;
+        dirLight.shadow.camera.far = 35;
+        dirLight.shadow.bias = -0.0005;
+        scene3D.add(dirLight);
+
+        // Interior warm dining point lights & cool bright kitchen lights
+        const frontLight1 = new THREE.PointLight('#fef3c7', 0.55, 11);
+        frontLight1.position.set(1.85, 3.8, -2.2);
+        scene3D.add(frontLight1);
+
+        const frontLight2 = new THREE.PointLight('#fef3c7', 0.50, 11);
+        frontLight2.position.set(1.85, 3.8, -5.2);
+        scene3D.add(frontLight2);
+
+        const kitchenLight1 = new THREE.PointLight('#f0f9ff', 0.72, 12);
+        kitchenLight1.position.set(1.85, 4.1, -9.2);
+        scene3D.add(kitchenLight1);
+
+        const kitchenLight2 = new THREE.PointLight('#f0f9ff', 0.65, 12);
+        kitchenLight2.position.set(1.55, 4.1, -12.4);
+        scene3D.add(kitchenLight2);
+
+        // Exterior subtle reference ground
+        const ground = new THREE.Mesh(
+          new THREE.PlaneGeometry(40, 40),
+          new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.95 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.set(1.8, -0.02, -7.2);
+        ground.receiveShadow = true;
+        scene3D.add(ground);
+
+        build3DArchitecture();
+
+        furnitureGroup3D = new THREE.Group();
+        scene3D.add(furnitureGroup3D);
+        rebuild3DFurniture();
+
+        set3DCameraPreset('iso');
+
+        // 3D Click selection
+        let downPos = { x: 0, y: 0 };
+        renderer3D.domElement.addEventListener('pointerdown', (e) => {
+          downPos = { x: e.clientX, y: e.clientY };
+        });
+        renderer3D.domElement.addEventListener('pointerup', (e) => {
+          if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 5) return;
+          const r = renderer3D.domElement.getBoundingClientRect();
+          pointer3D.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+          pointer3D.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+          raycaster3D.setFromCamera(pointer3D, camera3D);
+          const hits = raycaster3D.intersectObjects(furnitureGroup3D.children, true);
+          if (hits.length > 0) {
+            let obj = hits[0].object;
+            while (obj && !obj.userData?.itemId && obj.parent) obj = obj.parent;
+            if (obj?.userData?.itemId) {
+              state.selectedId = obj.userData.itemId;
+              renderSelection();
+              syncInspector();
+              highlight3DSelection();
+              const it = state.items.find((x) => x.id === state.selectedId);
+              if (it) showToast(`选中: ${it.label} (${it.w.toFixed(2)}m × ${it.h.toFixed(2)}m)`);
+              return;
+            }
+          }
+          state.selectedId = null;
+          renderSelection();
+          syncInspector();
+          highlight3DSelection();
+        });
+
+        window.addEventListener('resize', onResize3D);
+
+        // Bind on-screen 3D D-pad buttons (press-and-hold smooth movement)
+        document.querySelectorAll('.nav3d-btn[data-move]').forEach((btn) => {
+          const mv = btn.getAttribute('data-move');
+          const startMove = (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            active3DPad.add(mv);
+            btn.classList.add('pressed');
+          };
+          const stopMove = () => {
+            active3DPad.delete(mv);
+            btn.classList.remove('pressed');
+          };
+          btn.addEventListener('pointerdown', startMove);
+          btn.addEventListener('pointerup', stopMove);
+          btn.addEventListener('pointercancel', stopMove);
+          btn.addEventListener('pointerleave', stopMove);
+        });
+
+        document.getElementById('btnNavReset').addEventListener('click', () => {
+          set3DCameraPreset('iso');
+          showToast('已复位 3D 全景视角');
+        });
+
+        btnDragMode3D.addEventListener('click', () => {
+          dragMode3D = dragMode3D === 'rotate' ? 'pan' : 'rotate';
+          if (dragMode3D === 'pan') {
+            controls3D.mouseButtons.LEFT = THREE.MOUSE.PAN;
+            controls3D.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+            btnDragMode3D.textContent = '✋ 左键: 平移视角';
+            btnDragMode3D.classList.add('active');
+            showToast('已切换：左键拖拽上下左右平移，右键旋转');
+          } else {
+            controls3D.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+            controls3D.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+            btnDragMode3D.textContent = '🖱️ 左键: 旋转视角';
+            btnDragMode3D.classList.remove('active');
+            showToast('已切换：左键拖拽旋转视角，右键平移');
+          }
+        });
+
+        const _fwdVec = new THREE.Vector3();
+        const _rightVec = new THREE.Vector3();
+        const _upVec = new THREE.Vector3(0, 1, 0);
+        const _moveDelta = new THREE.Vector3();
+        let lastTime3D = performance.now();
+
+        function applyCameraMovement3D(dt) {
+          if (active3DKeys.size === 0 && active3DPad.size === 0) return;
+          const has = (m) => active3DKeys.has(m) || active3DPad.has(m);
+
+          camera3D.getWorldDirection(_fwdVec);
+          _fwdVec.y = 0;
+          if (_fwdVec.lengthSq() < 0.002) {
+            // Top-down view fallback: use camera's screen-up direction projected onto XZ
+            _fwdVec.set(0, 1, 0).applyQuaternion(camera3D.quaternion);
+            _fwdVec.y = 0;
+          }
+          if (_fwdVec.lengthSq() < 1e-6) _fwdVec.set(0, 0, -1);
+          _fwdVec.normalize();
+          _rightVec.crossVectors(_fwdVec, _upVec).normalize();
+
+          _moveDelta.set(0, 0, 0);
+          if (has('fwd')) _moveDelta.add(_fwdVec);
+          if (has('back')) _moveDelta.sub(_fwdVec);
+          if (has('right')) _moveDelta.add(_rightVec);
+          if (has('left')) _moveDelta.sub(_rightVec);
+          if (has('up')) _moveDelta.y += 1;
+          if (has('down')) _moveDelta.y -= 1;
+
+          if (_moveDelta.lengthSq() > 0) {
+            _moveDelta.normalize().multiplyScalar(3.6 * dt);
+            camera3D.position.add(_moveDelta);
+            controls3D.target.add(_moveDelta);
+            // Keep floor clamp reasonable so camera doesn't go infinitely underground
+            if (camera3D.position.y < 0.15) {
+              const fix = 0.15 - camera3D.position.y;
+              camera3D.position.y += fix;
+              controls3D.target.y += fix;
+            }
+          }
+        }
+
+        function animate3D(now) {
+          requestAnimationFrame(animate3D);
+          const dt = Math.min(0.05, Math.max(0.001, (now - lastTime3D) / 1000));
+          lastTime3D = now;
+          if (viewMode === '3d') {
+            applyCameraMovement3D(dt);
+            controls3D.update();
+            renderer3D.render(scene3D, camera3D);
+          }
+        }
+        requestAnimationFrame(animate3D);
+      }
+
+      function onResize3D() {
+        if (!threeInit || viewMode !== '3d') return;
+        const rect = view3dContainer.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        camera3D.aspect = rect.width / rect.height;
+        camera3D.updateProjectionMatrix();
+        renderer3D.setSize(rect.width, rect.height);
+      }
+
+      function build3DArchitecture() {
+        const H_TOTAL = 4.70;
+        const H_KITCHEN_STEP = 0.20;
+        const H_KITCHEN_TILE = 2.00;
+        const H_FRONT_CEMENT = 4.00;
+        const H_FRONT_BLACK = 0.70;
+
+        // Inner corner vertices matching INNER_POLY: [inA, inB, inD, inP2, inP1, inC]
+        const [inA, inB, inD, inP2, inP1, inC] = INNER_POLY;
+        const inLeftPart = { x: inA.x, y: 6.90 };
+        const inRightPart = { x: inB.x, y: 6.90 };
+
+        // ---- 1. Front Hall Floor: 60x60cm tiles (0m .. 6.90m, Y = 0.00m) ----
+        const frontTileTex = createTileTexture(['#e5e7eb', '#e2e4e8'], '#94a3b8', 2, 3);
+        const frontW = inB.x - inA.x;
+        const frontD = 6.90 - inA.y;
+        frontTileTex.repeat.set(frontW / 1.20, frontD / 1.20); // 2 cells per 1.20m => each tile = 0.60m x 0.60m
+        const frontFloor = new THREE.Mesh(
+          new THREE.PlaneGeometry(frontW, frontD),
+          new THREE.MeshStandardMaterial({ map: frontTileTex, roughness: 0.42, metalness: 0.05 })
+        );
+        frontFloor.rotation.x = -Math.PI / 2;
+        frontFloor.position.set((inA.x + inB.x) / 2, 0.001, -(inA.y + 6.90) / 2);
+        frontFloor.receiveShadow = true;
+        scene3D.add(frontFloor);
+
+        // ---- 2. Kitchen Raised Floor Slab (+20cm) with 30x30cm tiles ----
+        const kShape = new THREE.Shape();
+        kShape.moveTo(inLeftPart.x, inLeftPart.y);
+        kShape.lineTo(inRightPart.x, inRightPart.y);
+        kShape.lineTo(inD.x, inD.y);
+        kShape.lineTo(inP2.x, inP2.y);
+        kShape.lineTo(inP1.x, inP1.y);
+        kShape.lineTo(inC.x, inC.y);
+        kShape.closePath();
+
+        // 20cm concrete slab body
+        const slabGeo = new THREE.ExtrudeGeometry(kShape, { depth: H_KITCHEN_STEP, bevelEnabled: false });
+        slabGeo.rotateX(-Math.PI / 2);
+        const slabMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.85 });
+        const slabMesh = new THREE.Mesh(slabGeo, slabMat);
+        slabMesh.position.y = 0;
+        slabMesh.castShadow = true;
+        slabMesh.receiveShadow = true;
+        scene3D.add(slabMesh);
+
+        // 30x30cm kitchen floor tiles on top of raised slab (Y = 0.201m)
+        const kFloorTex = createTileTexture(['#f1f5f9', '#e8eef5'], '#64748b', 2, 4);
+        const kTopGeo = makePlanarUVGeometry(kShape, 0.60, 0.60); // 2 cells per 0.60m => each tile = 0.30m x 0.30m
+        kTopGeo.rotateX(-Math.PI / 2);
+        const kTopMesh = new THREE.Mesh(
+          kTopGeo,
+          new THREE.MeshStandardMaterial({ map: kFloorTex, roughness: 0.35, metalness: 0.05 })
+        );
+        kTopMesh.position.y = H_KITCHEN_STEP + 0.002;
+        kTopMesh.receiveShadow = true;
+        scene3D.add(kTopMesh);
+
+        // Exposed 20cm tiled step riser along y = 6.90m (visible at right doorway!)
+        const riserTex = kFloorTex.clone();
+        riserTex.needsUpdate = true;
+        riserTex.repeat.set(frontW / 0.60, H_KITCHEN_STEP / 0.60);
+        const riser = new THREE.Mesh(
+          new THREE.PlaneGeometry(frontW, H_KITCHEN_STEP),
+          new THREE.MeshStandardMaterial({ map: riserTex, roughness: 0.45 })
+        );
+        riser.position.set((inLeftPart.x + inRightPart.x) / 2, H_KITCHEN_STEP / 2, -6.90 + 0.003);
+        riser.receiveShadow = true;
+        scene3D.add(riser);
+
+        // ---- 3. Outer Structural Shell Walls (4.70m tall) ----
+        const shellMat = new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.9 });
+        const [outA, outB, outD, outP2, outP1, outC] = OUTER_POLY;
+
+        // Left wall, Right wall, and 3 top slanted walls (solid full height 4.70m)
+        scene3D.add(createWallPrism(outB, outD, inD, inB, 0, H_TOTAL, shellMat));
+        scene3D.add(createWallPrism(outD, outP2, inP2, inD, 0, H_TOTAL, shellMat));
+        scene3D.add(createWallPrism(outP2, outP1, inP1, inP2, 0, H_TOTAL, shellMat));
+        scene3D.add(createWallPrism(outP1, outC, inC, inP1, 0, H_TOTAL, shellMat));
+        scene3D.add(createWallPrism(outC, outA, inA, inC, 0, H_TOTAL, shellMat));
+
+        // Front wall (A -> B) with openings for bottom-left Window (0.42..1.40) and Double Door 大门 (1.60..2.86)
+        const fSegs = [
+          { x1: 0, x2: 0.42, baseY: 0, h: H_TOTAL },
+          { x1: 0.42, x2: 1.40, baseY: 0, h: 0.90 }, // under window sill
+          { x1: 0.42, x2: 1.40, baseY: 2.40, h: H_TOTAL - 2.40 }, // above window
+          { x1: 1.40, x2: 1.60, baseY: 0, h: H_TOTAL }, // mullion pillar
+          { x1: 1.60, x2: 2.86, baseY: 2.40, h: H_TOTAL - 2.40 }, // above 大门
+          { x1: 2.86, x2: 3.67, baseY: 0, h: H_TOTAL },
+        ];
+        fSegs.forEach((s) => {
+          const i1 = { x: Math.max(inA.x, s.x1), y: inA.y };
+          const i2 = { x: Math.min(inB.x, s.x2), y: inB.y };
+          const o1 = { x: s.x1, y: 0 };
+          const o2 = { x: s.x2, y: 0 };
+          if (i2.x > i1.x) {
+            scene3D.add(createWallPrism(o1, o2, i2, i1, s.baseY, s.h, shellMat));
+          }
+        });
+
+        // Front Window Glass & Frame
+        const glassMat = new THREE.MeshPhysicalMaterial({
+          color: '#bae6fd',
+          transparent: true,
+          opacity: 0.34,
+          roughness: 0.1,
+          metalness: 0.1,
+        });
+        const frameMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.4, metalness: 0.6 });
+        const winGlass = new THREE.Mesh(new THREE.BoxGeometry(0.98, 1.50, 0.03), glassMat);
+        winGlass.position.set(0.91, 1.65, -0.06);
+        scene3D.add(winGlass);
+
+        // Front Double Door (大门, hinged slightly open for architectural depth!)
+        const doorLeafW = 0.62;
+        const doorLeafH = 2.38;
+        const leftLeaf = new THREE.Group();
+        leftLeaf.position.set(1.60, 0, -0.04);
+        leftLeaf.rotation.y = -0.38; // swung slightly outward
+        const lPanel = new THREE.Mesh(new THREE.BoxGeometry(doorLeafW, doorLeafH, 0.045), glassMat);
+        lPanel.position.set(doorLeafW / 2, doorLeafH / 2, 0);
+        leftLeaf.add(lPanel);
+        const lFrame = new THREE.Mesh(new THREE.BoxGeometry(doorLeafW, 0.07, 0.06), frameMat);
+        lFrame.position.set(doorLeafW / 2, 0.035, 0);
+        leftLeaf.add(lFrame);
+        const lTop = lFrame.clone();
+        lTop.position.y = doorLeafH - 0.035;
+        leftLeaf.add(lTop);
+        scene3D.add(leftLeaf);
+
+        const rightLeaf = new THREE.Group();
+        rightLeaf.position.set(2.86, 0, -0.04);
+        rightLeaf.rotation.y = 0.38;
+        const rPanel = new THREE.Mesh(new THREE.BoxGeometry(doorLeafW, doorLeafH, 0.045), glassMat);
+        rPanel.position.set(-doorLeafW / 2, doorLeafH / 2, 0);
+        rightLeaf.add(rPanel);
+        const rFrame = new THREE.Mesh(new THREE.BoxGeometry(doorLeafW, 0.07, 0.06), frameMat);
+        rFrame.position.set(-doorLeafW / 2, 0.035, 0);
+        rightLeaf.add(rFrame);
+        const rTop = rFrame.clone();
+        rTop.position.y = doorLeafH - 0.035;
+        rightLeaf.add(rTop);
+        scene3D.add(rightLeaf);
+
+        // Two Black Structural Pillars at y = 6.90m (0..4.70m)
+        const pillarMat = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.7 });
+        const pLeft = new THREE.Mesh(new THREE.BoxGeometry(0.18, H_TOTAL, 0.48), pillarMat);
+        pLeft.position.set(0.09, H_TOTAL / 2, -6.90);
+        pLeft.castShadow = true;
+        scene3D.add(pLeft);
+        const pRight = new THREE.Mesh(new THREE.BoxGeometry(0.18, H_TOTAL, 0.48), pillarMat);
+        pRight.position.set(3.58, H_TOTAL / 2, -6.90);
+        pRight.castShadow = true;
+        scene3D.add(pRight);
+
+        // ---- 4. Kitchen 5 Walls: 2m Ceramic Wall Tiles (隔断面不贴砖) ----
+        const wallTileBaseTex = createTileTexture(['#ffffff', '#f8fafc'], '#cbd5e1', 2, 3);
+        const kitchenUpperMat = new THREE.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.85 });
+
+        const kitchenWallSegs = [
+          [inLeftPart, inC],      // 1. Left 5m wall
+          [inC, inP1],            // 2. Top-left 2m wall
+          [inP1, inP2],           // 3. Top 3.18m wall
+          [inP2, inD],            // 4. Top-right 2.55m wall
+          [inD, inRightPart],     // 5. Right kitchen wall
+        ];
+
+        kitchenWallSegs.forEach(([p1, p2]) => {
+          const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          const wTex = wallTileBaseTex.clone();
+          wTex.needsUpdate = true;
+          wTex.repeat.set(segLen / 0.60, H_KITCHEN_TILE / 0.60); // 30x30cm wall tiles up to 2.00m
+          const tileMat = new THREE.MeshStandardMaterial({
+            map: wTex,
+            roughness: 0.22,
+            metalness: 0.05,
+          });
+          // 2m tiled zone starting at kitchen raised floor (0.20m -> 2.20m)
+          const tileWall = createWallPlane(p1, p2, H_KITCHEN_STEP, H_KITCHEN_TILE, tileMat, 0.005);
+          if (tileWall) scene3D.add(tileWall);
+
+          // Upper painted wall above 2m tile (2.20m -> 4.70m)
+          const upperWall = createWallPlane(
+            p1, p2,
+            H_KITCHEN_STEP + H_KITCHEN_TILE,
+            H_TOTAL - (H_KITCHEN_STEP + H_KITCHEN_TILE),
+            kitchenUpperMat,
+            0.004
+          );
+          if (upperWall) scene3D.add(upperWall);
+        });
+
+        // ---- 5. Front Hall Walls: 0..4m Cement Paint, 4m..4.7m Matte Black Paint (NO wall tiles) ----
+        const cementTexBase = createCementTexture();
+        const blackPaintMat = new THREE.MeshStandardMaterial({ color: '#16161a', roughness: 0.88, metalness: 0.04 });
+
+        const frontSideSegs = [
+          [inA, inLeftPart],  // Left wall (CW: facing +X inward)
+          [inRightPart, inB], // Right wall (CW: facing -X inward)
+        ];
+
+        frontSideSegs.forEach(([p1, p2]) => {
+          const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          const cTex = cementTexBase.clone();
+          cTex.needsUpdate = true;
+          cTex.repeat.set(segLen / 1.8, H_FRONT_CEMENT / 1.8);
+          const cementMat = new THREE.MeshStandardMaterial({ map: cTex, roughness: 0.9 });
+
+          const lowerCement = createWallPlane(p1, p2, 0, H_FRONT_CEMENT, cementMat, 0.005);
+          if (lowerCement) scene3D.add(lowerCement);
+
+          const upperBlack = createWallPlane(p1, p2, H_FRONT_CEMENT, H_FRONT_BLACK, blackPaintMat, 0.005);
+          if (upperBlack) scene3D.add(upperBlack);
+        });
+
+        // Front interior entrance wall (CW: inB -> inA) finishes: 0..4m cement, 4..4.7m black
+        const cFrontTex = cementTexBase.clone();
+        cFrontTex.needsUpdate = true;
+        cFrontTex.repeat.set(1.2, 1.2);
+        const frontCementMat = new THREE.MeshStandardMaterial({ map: cFrontTex, roughness: 0.9 });
+        const fIntSegs = [
+          { x1: inA.x, x2: 0.42, y0: 0, h: H_FRONT_CEMENT },
+          { x1: 0.42, x2: 1.40, y0: 0, h: 0.90 },
+          { x1: 0.42, x2: 1.40, y0: 2.40, h: H_FRONT_CEMENT - 2.40 },
+          { x1: 1.40, x2: 1.60, y0: 0, h: H_FRONT_CEMENT },
+          { x1: 1.60, x2: 2.86, y0: 2.40, h: H_FRONT_CEMENT - 2.40 },
+          { x1: 2.86, x2: inB.x, y0: 0, h: H_FRONT_CEMENT },
+        ];
+        fIntSegs.forEach((s) => {
+          // CW direction from right (x2) to left (x1) so normal faces +Y inward
+          const m = createWallPlane({ x: s.x2, y: inA.y }, { x: s.x1, y: inA.y }, s.y0, s.h, frontCementMat, 0.005);
+          if (m) scene3D.add(m);
+        });
+        const frontTopBlack = createWallPlane(inB, inA, H_FRONT_CEMENT, H_FRONT_BLACK, blackPaintMat, 0.005);
+        if (frontTopBlack) scene3D.add(frontTopBlack);
+
+        // ---- 6. Ceiling at 4.70m (Front hall sprayed Matte Black Paint) ----
+        ceilingGroup3D = new THREE.Group();
+        ceilingMaterials = [];
+
+        const frontCeilMat = new THREE.MeshStandardMaterial({
+          color: '#16161a',
+          roughness: 0.88,
+          side: THREE.FrontSide, // Downward-facing normal => auto-transparent from above!
+        });
+        frontCeilMat.userData = { autoSide: THREE.FrontSide };
+        ceilingMaterials.push(frontCeilMat);
+
+        const frontCeil = new THREE.Mesh(new THREE.PlaneGeometry(frontW + 0.24, frontD + 0.12), frontCeilMat);
+        frontCeil.rotation.x = Math.PI / 2; // Normal points -Y (downward into room)
+        frontCeil.position.set((inA.x + inB.x) / 2, H_TOTAL, -(inA.y + 6.90) / 2);
+        ceilingGroup3D.add(frontCeil);
+
+        const kCeilMat = new THREE.MeshStandardMaterial({
+          color: '#cbd5e1',
+          roughness: 0.85,
+          side: THREE.BackSide, // kCeilGeo uses rotateX(-PI/2), so BackSide faces downward (-Y)!
+        });
+        kCeilMat.userData = { autoSide: THREE.BackSide };
+        ceilingMaterials.push(kCeilMat);
+
+        const kCeilGeo = new THREE.ShapeGeometry(kShape);
+        kCeilGeo.rotateX(-Math.PI / 2);
+        const kCeil = new THREE.Mesh(kCeilGeo, kCeilMat);
+        kCeil.position.y = H_TOTAL;
+        ceilingGroup3D.add(kCeil);
+
+        scene3D.add(ceilingGroup3D);
+        applyCeilingMode();
+      }
+
+      function applyCeilingMode() {
+        if (!ceilingGroup3D) return;
+        if (ceilingMode === 'hide') {
+          ceilingGroup3D.visible = false;
+        } else if (ceilingMode === 'show') {
+          ceilingGroup3D.visible = true;
+          ceilingMaterials.forEach((m) => { m.side = THREE.DoubleSide; });
+        } else {
+          ceilingGroup3D.visible = true;
+          ceilingMaterials.forEach((m) => { m.side = m.userData?.autoSide ?? THREE.FrontSide; });
+        }
+      }
+
+      function create3DTextBadge(text, bgColor = '#1e293b', textColor = '#ffffff') {
+        const c = document.createElement('canvas');
+        c.width = 256;
+        c.height = 96;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = bgColor;
+        ctx.beginPath();
+        ctx.roundRect(12, 12, 232, 72, 16);
+        ctx.fill();
+        ctx.fillStyle = textColor;
+        ctx.font = 'bold 40px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 128, 48);
+        const tex = new THREE.CanvasTexture(c);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+        const sp = new THREE.Sprite(mat);
+        sp.scale.set(0.65, 0.24, 1);
+        return sp;
+      }
+
+      function rebuild3DFurniture() {
+        if (!furnitureGroup3D) return;
+        while (furnitureGroup3D.children.length > 0) {
+          furnitureGroup3D.remove(furnitureGroup3D.children[0]);
+        }
+
+        const stainlessMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.35, metalness: 0.65 });
+        const darkMetalMat = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.5, metalness: 0.5 });
+        const woodMat = new THREE.MeshStandardMaterial({ color: '#d4a373', roughness: 0.65 });
+        const shelfWoodMat = new THREE.MeshStandardMaterial({ color: '#e9c46a', roughness: 0.7 });
+        const cementBoardMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.88 });
+        const glassMat = new THREE.MeshPhysicalMaterial({
+          color: '#bfdbfe', transparent: true, opacity: 0.36, roughness: 0.1, metalness: 0.1,
+        });
+        const whiteMat = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.45 });
+
+        for (const item of state.items) {
+          const g = new THREE.Group();
+          g.userData = { itemId: item.id };
+          const baseY = item.cy >= 6.90 ? 0.20 : 0.00;
+          g.position.set(item.cx, baseY, -item.cy);
+          g.rotation.y = -(item.rot * Math.PI) / 180;
+
+          const w = item.w;
+          const d = item.h;
+
+          switch (item.kind) {
+            case 'partition': {
+              // 40cm thick x 4.70m high architectural partition matching detail diagram!
+              const H = 4.70;
+              // Bottom cement board (0 -> 0.92m)
+              const bot = new THREE.Mesh(new THREE.BoxGeometry(w, 0.92, d), cementBoardMat);
+              bot.position.y = 0.92 / 2;
+              bot.castShadow = true; bot.receiveShadow = true;
+              g.add(bot);
+
+              // Left & right side piers between 0.92m -> 2.50m framing 出餐口 & 玻璃
+              const pierW = Math.min(0.24, w * 0.12);
+              const pierL = new THREE.Mesh(new THREE.BoxGeometry(pierW, 1.58, d), cementBoardMat);
+              pierL.position.set(-w / 2 + pierW / 2, 0.92 + 1.58 / 2, 0);
+              g.add(pierL);
+
+              const pierR = new THREE.Mesh(new THREE.BoxGeometry(pierW, 1.58, d), cementBoardMat);
+              pierR.position.set(w / 2 - pierW / 2, 0.92 + 1.58 / 2, 0);
+              g.add(pierR);
+
+              // Pass-through serving ledge (出餐口 0.92 -> 1.32m is open!)
+              const innerSpan = Math.max(0.4, w - pierW * 2);
+              const sill = new THREE.Mesh(new THREE.BoxGeometry(innerSpan, 0.04, d + 0.04), darkMetalMat);
+              sill.position.set(0, 0.92, 0);
+              g.add(sill);
+
+              // Glass panel above serving cutout (1.32m -> 2.50m)
+              const glassH = 1.18;
+              const gPane = new THREE.Mesh(new THREE.BoxGeometry(innerSpan, glassH, 0.03), glassMat);
+              gPane.position.set(0, 1.32 + glassH / 2, 0);
+              g.add(gPane);
+              const transomBar = new THREE.Mesh(new THREE.BoxGeometry(innerSpan, 0.05, 0.08), darkMetalMat);
+              transomBar.position.set(0, 1.32, 0);
+              g.add(transomBar);
+
+              // Upper cement board (2.50m -> 4.70m), extended across right doorway to right wall (3.55m)
+              const upperH = H - 2.50;
+              const upperMain = new THREE.Mesh(new THREE.BoxGeometry(w, upperH, d), cementBoardMat);
+              upperMain.position.set(0, 2.50 + upperH / 2, 0);
+              upperMain.castShadow = true;
+              g.add(upperMain);
+
+              // Doorway bulkhead & open kitchen door leaf (门 1m x 2.5m on right end)
+              const doorSpan = 1.05;
+              const doorHeader = new THREE.Mesh(new THREE.BoxGeometry(doorSpan, upperH, d), cementBoardMat);
+              doorHeader.position.set(w / 2 + doorSpan / 2, 2.50 + upperH / 2, 0);
+              doorHeader.castShadow = true;
+              g.add(doorHeader);
+
+              const kDoor = new THREE.Group();
+              kDoor.position.set(w / 2 + doorSpan - 0.04, 0.20, 0);
+              kDoor.rotation.y = 0.65; // Open into kitchen
+              const kDoorPanel = new THREE.Mesh(new THREE.BoxGeometry(0.90, 2.28, 0.04), whiteMat);
+              kDoorPanel.position.set(-0.45, 1.14, 0);
+              kDoorPanel.castShadow = true;
+              kDoor.add(kDoorPanel);
+              g.add(kDoor);
+              break;
+            }
+
+            case 'shelf': {
+              const H = 1.80;
+              // 4 corner posts
+              const px = w / 2 - 0.025, pz = d / 2 - 0.025;
+              [[-px, -pz], [px, -pz], [-px, pz], [px, pz]].forEach(([x, z]) => {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.04, H, 0.04), darkMetalMat);
+                post.position.set(x, H / 2, z);
+                post.castShadow = true;
+                g.add(post);
+              });
+              // 4 shelf tiers
+              [0.18, 0.68, 1.18, 1.68].forEach((y) => {
+                const tier = new THREE.Mesh(new THREE.BoxGeometry(w, 0.035, d), shelfWoodMat);
+                tier.position.y = y;
+                tier.castShadow = true; tier.receiveShadow = true;
+                g.add(tier);
+              });
+              break;
+            }
+
+            case 'fridge': {
+              const H = 1.95;
+              const body = new THREE.Mesh(new THREE.BoxGeometry(w, H, d), stainlessMat);
+              body.position.y = H / 2;
+              body.castShadow = true; body.receiveShadow = true;
+              g.add(body);
+              // Door seam
+              const seam = new THREE.Mesh(new THREE.BoxGeometry(w + 0.005, 0.015, d + 0.005), darkMetalMat);
+              seam.position.y = 0.82;
+              g.add(seam);
+              break;
+            }
+
+            case 'sink': {
+              const H = 0.85;
+              const base = new THREE.Mesh(new THREE.BoxGeometry(w, H - 0.08, d), stainlessMat);
+              base.position.y = (H - 0.08) / 2;
+              base.castShadow = true;
+              g.add(base);
+              const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, d), stainlessMat);
+              top.position.y = H - 0.03;
+              g.add(top);
+              // Two faucet arcs
+              [-w * 0.24, w * 0.24].forEach((fx) => {
+                const faucet = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.24, 8), darkMetalMat);
+                faucet.position.set(fx, H + 0.12, -d * 0.35);
+                g.add(faucet);
+              });
+              break;
+            }
+
+            case 'prepTable': {
+              const H = 0.85;
+              const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), stainlessMat);
+              top.position.y = H - 0.025;
+              top.castShadow = true;
+              g.add(top);
+              const sub = new THREE.Mesh(new THREE.BoxGeometry(w - 0.06, 0.03, d - 0.06), stainlessMat);
+              sub.position.y = 0.22;
+              g.add(sub);
+              const px = w / 2 - 0.03, pz = d / 2 - 0.03;
+              [[-px, -pz], [px, -pz], [-px, pz], [px, pz]].forEach(([x, z]) => {
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, H - 0.04, 8), darkMetalMat);
+                leg.position.set(x, (H - 0.04) / 2, z);
+                g.add(leg);
+              });
+              break;
+            }
+
+            case 'stove': {
+              const H = 0.85;
+              const body = new THREE.Mesh(new THREE.BoxGeometry(w, H, d), stainlessMat);
+              body.position.y = H / 2;
+              body.castShadow = true;
+              g.add(body);
+              // 4 cast-iron burners
+              const bx = w * 0.22, bz = d * 0.24;
+              [[-bx, -bz], [bx, -bz], [-bx, bz], [bx, bz]].forEach(([x, z]) => {
+                const burner = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.04, 16), darkMetalMat);
+                burner.position.set(x, H + 0.02, z);
+                g.add(burner);
+              });
+              break;
+            }
+
+            case 'vat': {
+              const H = 0.80;
+              const rad = Math.min(w, d) / 2;
+              const cyl = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad * 0.94, H, 20), stainlessMat);
+              cyl.position.y = H / 2;
+              cyl.castShadow = true;
+              g.add(cyl);
+              break;
+            }
+
+            case 'serving':
+            case 'cashier': {
+              const H = item.kind === 'cashier' ? 1.00 : 0.88;
+              const counterMat = item.kind === 'cashier'
+                ? new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.7 })
+                : woodMat;
+              const body = new THREE.Mesh(new THREE.BoxGeometry(w, H - 0.04, d), counterMat);
+              body.position.y = (H - 0.04) / 2;
+              body.castShadow = true; body.receiveShadow = true;
+              g.add(body);
+              const top = new THREE.Mesh(new THREE.BoxGeometry(w + 0.04, 0.04, d + 0.04), whiteMat);
+              top.position.y = H - 0.02;
+              g.add(top);
+              if (item.kind === 'cashier') {
+                const pos = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, 0.04), darkMetalMat);
+                pos.position.set(0.1, H + 0.14, 0);
+                pos.rotation.x = -0.25;
+                g.add(pos);
+              }
+              break;
+            }
+
+            case 'diningTable':
+            case 'sideTable': {
+              const H = 0.75;
+              const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, d), woodMat);
+              top.position.y = H - 0.02;
+              top.castShadow = true; top.receiveShadow = true;
+              g.add(top);
+              const px = Math.max(0.05, w / 2 - 0.05), pz = Math.max(0.05, d / 2 - 0.05);
+              [[-px, -pz], [px, -pz], [-px, pz], [px, pz]].forEach(([x, z]) => {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.04, H - 0.04, 0.04), darkMetalMat);
+                leg.position.set(x, (H - 0.04) / 2, z);
+                leg.castShadow = true;
+                g.add(leg);
+              });
+              break;
+            }
+
+            case 'stool': {
+              const H = 0.46;
+              const rad = Math.min(w, d) / 2;
+              const seat = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, 0.05, 18), woodMat);
+              seat.position.y = H - 0.025;
+              seat.castShadow = true;
+              g.add(seat);
+              const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, H - 0.05, 10), darkMetalMat);
+              stem.position.y = (H - 0.05) / 2;
+              g.add(stem);
+              const base = new THREE.Mesh(new THREE.CylinderGeometry(rad * 0.72, rad * 0.8, 0.02, 16), darkMetalMat);
+              base.position.y = 0.01;
+              g.add(base);
+              break;
+            }
+
+            case 'fan': {
+              // Ceiling fan hanging from 4.70m black ceiling down to Y = 3.90m
+              const ceilY = 4.70 - baseY;
+              const fanY = ceilY - 0.75;
+              const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.75, 8), darkMetalMat);
+              rod.position.y = ceilY - 0.375;
+              g.add(rod);
+              const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.08, 16), darkMetalMat);
+              hub.position.y = fanY;
+              g.add(hub);
+              const bladeSpan = Math.max(w, d);
+              [Math.PI / 4, (Math.PI * 3) / 4].forEach((ang) => {
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(bladeSpan, 0.015, 0.09), darkMetalMat);
+                blade.position.y = fanY;
+                blade.rotation.y = ang;
+                g.add(blade);
+              });
+              break;
+            }
+
+            case 'elecBox': {
+              const box = new THREE.Mesh(
+                new THREE.BoxGeometry(w, 0.65, d),
+                new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.4, metalness: 0.5 })
+              );
+              box.position.y = 1.45; // wall-mounted distribution panel
+              box.castShadow = true;
+              g.add(box);
+              break;
+            }
+
+            case 'power': {
+              const pwr = new THREE.Mesh(
+                new THREE.BoxGeometry(0.12, 0.12, 0.04),
+                new THREE.MeshStandardMaterial({ color: '#2563eb', emissive: '#1d4ed8', emissiveIntensity: 0.35 })
+              );
+              pwr.position.y = 0.45;
+              g.add(pwr);
+              break;
+            }
+
+            default: {
+              const box = new THREE.Mesh(new THREE.BoxGeometry(w, 0.80, d), woodMat);
+              box.position.y = 0.40;
+              box.castShadow = true;
+              g.add(box);
+            }
+          }
+
+          furnitureGroup3D.add(g);
+        }
+
+        highlight3DSelection();
+      }
+
+      function highlight3DSelection() {
+        if (!scene3D) return;
+        if (selectionBox3D) {
+          scene3D.remove(selectionBox3D);
+          selectionBox3D = null;
+        }
+        const item = state.items.find((it) => it.id === state.selectedId);
+        if (!item || !furnitureGroup3D) return;
+        const target = furnitureGroup3D.children.find((c) => c.userData?.itemId === item.id);
+        if (!target) return;
+        selectionBox3D = new THREE.BoxHelper(target, '#3b82f6');
+        scene3D.add(selectionBox3D);
+      }
+
+      function set3DCameraPreset(preset) {
+        if (!threeInit) return;
+        document.querySelectorAll('.hud3d-btn[data-cam]').forEach((b) => {
+          b.classList.toggle('active', b.getAttribute('data-cam') === preset);
+        });
+        if (preset === 'iso') {
+          camera3D.position.set(10.5, 11.5, 3.2);
+          controls3D.target.set(1.8, 1.5, -7.2);
+        } else if (preset === 'front') {
+          // Inside front entrance looking up at 4m cement paint, 0.7m black top & black ceiling
+          camera3D.position.set(1.85, 1.65, -0.55);
+          controls3D.target.set(1.80, 2.35, -6.90);
+        } else if (preset === 'kitchen') {
+          // Inside raised kitchen showing 20cm floor, 30x30 floor tiles & 5 walls with 2m wall tiles
+          camera3D.position.set(1.80, 1.85, -7.80);
+          controls3D.target.set(1.50, 1.35, -13.20);
+        } else if (preset === 'counter') {
+          // Looking right at 40cm 隔断 + 出餐口 + 20cm kitchen step
+          camera3D.position.set(2.35, 1.75, -3.90);
+          controls3D.target.set(1.65, 1.35, -7.40);
+        } else if (preset === 'top') {
+          camera3D.position.set(1.85, 19.5, -7.40);
+          controls3D.target.set(1.85, 0.0, -7.41);
+        }
+        controls3D.update();
+      }
+
+      function setViewMode(mode) {
+        viewMode = mode;
+        const is3D = mode === '3d';
+        tabMode2D.classList.toggle('active', !is3D);
+        tabMode3D.classList.toggle('active', is3D);
+        container.classList.toggle('hidden', is3D);
+        view3dContainer.classList.toggle('active', is3D);
+
+        if (is3D) {
+          init3D();
+          rebuild3DFurniture();
+          onResize3D();
+        }
+      }
+
+      tabMode2D.addEventListener('click', () => setViewMode('2d'));
+      tabMode3D.addEventListener('click', () => setViewMode('3d'));
+
+      document.querySelectorAll('.hud3d-btn[data-cam]').forEach((btn) => {
+        btn.addEventListener('click', () => set3DCameraPreset(btn.getAttribute('data-cam')));
+      });
+
+      btnCeilingMode.addEventListener('click', () => {
+        const order = ['auto', 'show', 'hide'];
+        const labels = {
+          auto: '天花板: 自动透视',
+          show: '天花板: 始终显示',
+          hide: '天花板: 始终隐藏',
+        };
+        ceilingMode = order[(order.indexOf(ceilingMode) + 1) % order.length];
+        btnCeilingMode.textContent = labels[ceilingMode];
+        btnCeilingMode.classList.toggle('active', ceilingMode !== 'hide');
+        applyCeilingMode();
+      });
+
+      document.getElementById('btnExport3DPng').addEventListener('click', () => {
+        if (!threeInit) return;
+        renderer3D.render(scene3D, camera3D);
+        const dataUrl = renderer3D.domElement.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `floorplan_3D_${new Date().toISOString().slice(0, 10)}.png`;
+        a.click();
+        showToast('已导出 3D 实景渲染截图');
+      });
+
+      // ============================================================
+      // 11.8 Material & Area Takeoff Board (装修面积看板)
+      // ============================================================
+      const tabPanelArea = document.getElementById('tabPanelArea');
+      const tabPanelProps = document.getElementById('tabPanelProps');
+      const areaBoardPanel = document.getElementById('areaBoardPanel');
+      const propsInspectorPanel = document.getElementById('propsInspectorPanel');
+      const btnOpenAreaBoard = document.getElementById('btnOpenAreaBoard');
+
+      function switchSidebarTab(tab) {
+        const isArea = tab === 'area';
+        tabPanelArea.classList.toggle('active', isArea);
+        tabPanelProps.classList.toggle('active', !isArea);
+        btnOpenAreaBoard.classList.toggle('active', isArea);
+        areaBoardPanel.style.display = isArea ? 'flex' : 'none';
+        propsInspectorPanel.style.display = isArea ? 'none' : 'flex';
+      }
+
+      tabPanelArea.addEventListener('click', () => switchSidebarTab('area'));
+      tabPanelProps.addEventListener('click', () => switchSidebarTab('props'));
+      btnOpenAreaBoard.addEventListener('click', () => {
+        const isAreaOpen = areaBoardPanel.style.display !== 'none';
+        switchSidebarTab(isAreaOpen ? 'props' : 'area');
+      });
+
+      function polyArea(pts) {
+        let sum = 0;
+        for (let i = 0; i < pts.length; i++) {
+          const p1 = pts[i];
+          const p2 = pts[(i + 1) % pts.length];
+          sum += p1.x * p2.y - p2.x * p1.y;
+        }
+        return Math.abs(sum) / 2;
+      }
+
+      let latestAreaTextReport = '';
+
+      function renderAreaBoard() {
+        const [inA, inB, inD, inP2, inP1, inC] = INNER_POLY;
+        const inLP = { x: inA.x, y: 6.90 };
+        const inRP = { x: inB.x, y: 6.90 };
+
+        const partItem = state.items.find((it) => it.kind === 'partition');
+        const partThick = partItem ? partItem.h : 0.40;
+        const partWidth = partItem ? partItem.w : 2.36;
+        const partHalf = partThick / 2;
+        document.getElementById('boardPartThick').textContent = partThick.toFixed(2);
+
+        // 1. 后厨墙砖面积 (5 面墙贴到 2.00m 高，隔断面不贴)
+        const kSegs = [
+          { name: '左5m墙', len: Math.hypot(inC.x - inLP.x, inC.y - inLP.y) },
+          { name: '左上2m斜墙', len: Math.hypot(inP1.x - inC.x, inP1.y - inC.y) },
+          { name: '顶3.18m斜墙', len: Math.hypot(inP2.x - inP1.x, inP2.y - inP1.y) },
+          { name: '右上2.55m斜墙', len: Math.hypot(inD.x - inP2.x, inD.y - inP2.y) },
+          { name: '右直墙', len: Math.hypot(inRP.x - inD.x, inRP.y - inD.y) },
+        ];
+        const kWallTotalLen = kSegs.reduce((acc, s) => acc + s.len, 0);
+        const kWallTileGross = kWallTotalLen * 2.00;
+        const kWallTileNet = (kWallTotalLen - partHalf) * 2.00; // 扣除左墙被隔断占压的半厚
+
+        document.getElementById('valKitchenWallTile').textContent = `${kWallTileGross.toFixed(2)} m²`;
+        document.getElementById('subKitchenWallTile').textContent =
+          `5面内墙总长 ${kWallTotalLen.toFixed(2)}m × 2.00m 高（隔断面不贴砖）`;
+        document.getElementById('detKitchenWallTile').innerHTML =
+          kSegs.map((s) => `${s.name} ${s.len.toFixed(2)}m`).join(' + ') +
+          `<br>若扣隔断占墙端头约净 <strong>${kWallTileNet.toFixed(2)} m²</strong>`;
+
+        // 2. 后厨地砖面积 (30×30cm，垫高 20cm)
+        const kFloorGross = polyArea([inLP, inRP, inD, inP2, inP1, inC]);
+        const kPartOccupy = partWidth * partHalf; // 隔断占入后厨侧约一半厚度
+        const kFloorNet = Math.max(0, kFloorGross - kPartOccupy);
+        const riserDoor = 1.05 * 0.20; // 门口 20cm 台阶立面
+        const tiles30Count = Math.ceil((kFloorNet / 0.09) * 1.05); // 含5%损耗
+
+        document.getElementById('valKitchenFloorTile').textContent = `${kFloorNet.toFixed(2)} m²`;
+        document.getElementById('subKitchenFloorTile').textContent =
+          `后厨室内毛面积 ${kFloorGross.toFixed(2)} m² − 隔断占压 ${kPartOccupy.toFixed(2)} m²`;
+        document.getElementById('detKitchenFloorTile').innerHTML =
+          `含门口 20cm 台阶立面 ${riserDoor.toFixed(2)} m² · 30×30cm 地砖约 <strong>${tiles30Count} 片</strong>（含5%损耗）`;
+
+        // 3. 前厅地砖面积 (60×60cm)
+        const frontInnerW = inB.x - inA.x; // 3.43m
+        const frontInnerD = 6.90 - inA.y;  // 6.78m
+        const fFloorGross = frontInnerW * frontInnerD;
+        const fPartOccupy = partWidth * partHalf; // 隔断占入前厅侧约一半厚度
+        const fFloorNet = Math.max(0, fFloorGross - fPartOccupy);
+        const tiles60Count = Math.ceil((fFloorNet / 0.36) * 1.05); // 含5%损耗
+
+        document.getElementById('valFrontFloorTile').textContent = `${fFloorNet.toFixed(2)} m²`;
+        document.getElementById('subFrontFloorTile').textContent =
+          `前厅内径 ${frontInnerW.toFixed(2)}m × ${frontInnerD.toFixed(2)}m = ${fFloorGross.toFixed(2)} m² − 隔断占压 ${fPartOccupy.toFixed(2)} m²`;
+        document.getElementById('detFrontFloorTile').innerHTML =
+          `前厅无需墙砖 · 60×60cm 地砖约 <strong>${tiles60Count} 片</strong>（含5%损耗）`;
+
+        // 4. 前厅刷墙水泥漆面积 (0 ~ 4.00m 高)
+        const lrSideLen = frontInnerD * 2; // 左右两侧各 6.78m
+        const cementLR = lrSideLen * 4.00; // 54.24 m²
+        const winArea = 0.98 * 1.50;
+        const doorArea = 1.26 * 2.40;
+        const cementFrontWall = frontInnerW * 4.00 - winArea - doorArea; // 前墙扣窗和大门
+        const cementTotalWithFront = cementLR + cementFrontWall;
+
+        document.getElementById('valFrontCement').textContent = `${cementLR.toFixed(2)} m²`;
+        document.getElementById('subFrontCement').textContent =
+          `前厅左右两面墙：2 × ${frontInnerD.toFixed(2)}m × 4.00m高 = ${cementLR.toFixed(2)} m²`;
+        document.getElementById('detFrontCement').innerHTML =
+          `若含前入口墙（扣窗 ${winArea.toFixed(2)}m²、大门 ${doorArea.toFixed(2)}m²）共计 <strong>${cementTotalWithFront.toFixed(2)} m²</strong>`;
+
+        // 5. 前厅黑漆面积 (4.00 ~ 4.70m 高 + 天花板)
+        const blackLRBand = lrSideLen * 0.70;
+        const blackFrontBand = frontInnerW * 0.70;
+        const blackCeiling = fFloorGross;
+        const blackTotalLRAndCeil = blackLRBand + blackCeiling;
+        const blackTotalAll = blackLRBand + blackFrontBand + blackCeiling;
+
+        document.getElementById('valFrontBlack').textContent = `${blackTotalAll.toFixed(2)} m²`;
+        document.getElementById('subFrontBlack').textContent =
+          `左右顶带 ${blackLRBand.toFixed(2)} m² + 前墙顶带 ${blackFrontBand.toFixed(2)} m² + 天花板 ${blackCeiling.toFixed(2)} m²`;
+        document.getElementById('detFrontBlack').innerHTML =
+          `仅计左右 0.7m 顶带 + 天花板为 <strong>${blackTotalLRAndCeil.toFixed(2)} m²</strong>（天花板按 ${frontInnerW.toFixed(2)}×${frontInnerD.toFixed(2)}m 计）`;
+
+        latestAreaTextReport = [
+          '【店铺装修面积统计清单（层高4.7m / 隔断厚' + partThick.toFixed(2) + 'm）】',
+          `1. 后厨墙砖面积（5面墙2m高，不含隔断）：${kWallTileGross.toFixed(2)} m²（扣隔断端头净约 ${kWallTileNet.toFixed(2)} m²）`,
+          `2. 后厨地砖面积（30×30cm，垫高20cm）：净 ${kFloorNet.toFixed(2)} m²（毛面积 ${kFloorGross.toFixed(2)} m²，含5%损耗约 ${tiles30Count} 片）`,
+          `3. 前厅地砖面积（60×60cm）：净 ${fFloorNet.toFixed(2)} m²（毛面积 ${fFloorGross.toFixed(2)} m²，含5%损耗约 ${tiles60Count} 片）`,
+          `4. 前厅水泥漆面积（至4m高）：左右两面墙 ${cementLR.toFixed(2)} m²（含前入口净墙面共 ${cementTotalWithFront.toFixed(2)} m²）`,
+          `5. 前厅黑漆面积（剩0.7m高+天花板）：含前墙顶带共 ${blackTotalAll.toFixed(2)} m²（左右0.7m+天花板 ${blackTotalLRAndCeil.toFixed(2)} m²）`,
+        ].join('\n');
+      }
+
+      document.getElementById('btnCopyAreaReport').addEventListener('click', () => {
+        if (!latestAreaTextReport) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(latestAreaTextReport).then(() => {
+            showToast('已复制工程面积清单到剪贴板');
+          }).catch(() => {
+            showToast('复制失败，请手动查看看板数据');
+          });
+        } else {
+          showToast('当前环境不支持剪贴板写入');
+        }
+      });
+
+      // ============================================================
+      // 12. Bootstrap
+      // ============================================================
+      function init() {
+        buildDefs();
+        renderGrid();
+        renderDetailDiagram();
+        renderArchitecture();
+        renderDimensions();
+
+        // Restore from localStorage if available
+        let loaded = null;
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) loaded = JSON.parse(raw);
+        } catch (_) {}
+
+        state.items = Array.isArray(loaded) && loaded.length > 0 ? loaded : createInitialItems();
+        renderItems();
+        renderSelection();
+        syncInspector();
+        renderAreaBoard();
+        switchSidebarTab('area');
+        pushHistory();
+
+        fitView();
+        window.addEventListener('resize', applyViewBox);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
