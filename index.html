@@ -935,6 +935,10 @@
           <button id="tabMode2D" class="mode-tab active">📐 2D 平面编辑</button>
           <button id="tabMode3D" class="mode-tab">🧊 3D 实景模型</button>
         </div>
+        <div class="mode-switch" title="对比选择：居中吊扇方案 或 两侧壁扇方案">
+          <button id="tabSchemeCeiling" class="mode-tab active">🌀 方案A: 吊扇版</button>
+          <button id="tabSchemeWall" class="mode-tab">💨 方案B: 壁扇版</button>
+        </div>
       </div>
 
       <div class="toolbar-actions">
@@ -944,7 +948,7 @@
             <div class="dropdown-section-title">营业区桌椅 / 收银</div>
             <div class="palette-grid">
               <button class="palette-item" data-preset="diningTable">
-                <strong>餐桌</strong><span>1.15m × 0.65m</span>
+                <strong>四人餐桌</strong><span>1.20m × 0.60m</span>
               </button>
               <button class="palette-item" data-preset="sideTable">
                 <strong>右侧桌</strong><span>0.60m × 0.60m</span>
@@ -981,6 +985,12 @@
               </button>
               <button class="palette-item" data-preset="fan">
                 <strong>吊扇</strong><span>0.65m × 0.65m</span>
+              </button>
+              <button class="palette-item" data-preset="wallFan">
+                <strong>壁扇</strong><span>0.34m × 0.48m</span>
+              </button>
+              <button class="palette-item" data-preset="trackLight">
+                <strong>轨道射灯(5头)</strong><span>0.24m × 5.80m</span>
               </button>
               <button class="palette-item" data-preset="elecBox">
                 <strong>电箱</strong><span>0.50m × 0.35m</span>
@@ -1248,7 +1258,7 @@
       // ============================================================
       const SCALE = 60; // 1 meter = 60 SVG pixels
       const WALL_T = 0.12; // 12cm architectural wall thickness inward
-      const STORAGE_KEY = 'oldfriend_cad_floorplan_v2';
+      const STORAGE_KEY = 'oldfriend_cad_floorplan_v3';
 
       // Architectural meter coordinates:
       // Origin (0, 0) = bottom-left outer corner of main shop area.
@@ -1342,7 +1352,7 @@
       // Each item: { id, kind, label, cx, cy, w, h, rot }
       // cx, cy in architectural meters (0,0 = bottom-left outer corner)
       // w, h in meters; rot in degrees clockwise in SVG view
-      function createInitialItems() {
+      function createInitialItems(scheme = 'ceilingFan') {
         // Compute shelf centers tucked cleanly 0.38m inward along each slanted wall
         const mid2 = { x: (PT_C.x + PT_P1.x) / 2, y: (PT_C.y + PT_P1.y) / 2 };
         const n2 = { x: Math.cos(ALPHA), y: Math.sin(ALPHA) }; // inward normal of C->P1
@@ -1496,69 +1506,51 @@
             rot: 0,
           },
 
-          // Left Dining Tables (餐桌 x3)
+          // Left Dining Tables (四人餐桌 x3: 120×60cm 靠左墙摆放, 左边缘对齐 x=0.12m)
           {
             id: 'dining_1',
             kind: 'diningTable',
             label: '餐桌',
-            cx: 0.90,
-            cy: 4.15,
-            w: 1.15,
-            h: 0.65,
+            cx: 0.72,
+            cy: 4.25,
+            w: 1.20,
+            h: 0.60,
             rot: 0,
           },
           {
             id: 'dining_2',
             kind: 'diningTable',
             label: '餐桌',
-            cx: 0.90,
-            cy: 2.75,
-            w: 1.15,
-            h: 0.65,
+            cx: 0.72,
+            cy: 2.85,
+            w: 1.20,
+            h: 0.60,
             rot: 0,
           },
           {
             id: 'dining_3',
             kind: 'diningTable',
             label: '餐桌',
-            cx: 0.90,
-            cy: 1.35,
-            w: 1.15,
-            h: 0.65,
+            cx: 0.72,
+            cy: 1.45,
+            w: 1.20,
+            h: 0.60,
             rot: 0,
           },
 
-          // Center Aisle Ceiling Fans (吊扇 x3)
-          {
-            id: 'fan_1',
-            kind: 'fan',
-            label: '吊扇',
-            cx: 2.02,
-            cy: 4.75,
-            w: 0.62,
-            h: 0.62,
-            rot: 0,
-          },
-          {
-            id: 'fan_2',
-            kind: 'fan',
-            label: '吊扇',
-            cx: 2.02,
-            cy: 3.35,
-            w: 0.62,
-            h: 0.62,
-            rot: 0,
-          },
-          {
-            id: 'fan_3',
-            kind: 'fan',
-            label: '吊扇',
-            cx: 2.02,
-            cy: 1.95,
-            w: 0.62,
-            h: 0.62,
-            rot: 0,
-          },
+          // Fans: Scheme A = 3 Center Ceiling Fans (吊扇×3) | Scheme B = 4 Side Wall Fans (两边墙各2个壁扇)
+          ...(scheme === 'wallFan'
+            ? [
+                { id: 'wallfan_L1', kind: 'wallFan', label: '壁扇', cx: 0.28, cy: 4.70, w: 0.34, h: 0.48, rot: 0 },
+                { id: 'wallfan_L2', kind: 'wallFan', label: '壁扇', cx: 0.28, cy: 2.10, w: 0.34, h: 0.48, rot: 0 },
+                { id: 'wallfan_R1', kind: 'wallFan', label: '壁扇', cx: 3.39, cy: 4.70, w: 0.34, h: 0.48, rot: 180 },
+                { id: 'wallfan_R2', kind: 'wallFan', label: '壁扇', cx: 3.39, cy: 2.10, w: 0.34, h: 0.48, rot: 180 },
+              ]
+            : [
+                { id: 'fan_1', kind: 'fan', label: '吊扇', cx: 2.02, cy: 4.75, w: 0.62, h: 0.62, rot: 0 },
+                { id: 'fan_2', kind: 'fan', label: '吊扇', cx: 2.02, cy: 3.35, w: 0.62, h: 0.62, rot: 0 },
+                { id: 'fan_3', kind: 'fan', label: '吊扇', cx: 2.02, cy: 1.95, w: 0.62, h: 0.62, rot: 0 },
+              ]),
 
           // Right Side Stools (凳 x2) & Tables (桌 x3)
           {
@@ -1637,11 +1629,33 @@
           { id: 'pwr_10', kind: 'power', label: '电', cx: 3.55, cy: 3.70, w: 0.32, h: 0.32, rot: 0 },
           { id: 'pwr_11', kind: 'power', label: '电', cx: 2.75, cy: 0.35, w: 0.32, h: 0.32, rot: 0 },
           { id: 'pwr_12', kind: 'power', label: '电', cx: 3.78, cy: 0.42, w: 0.32, h: 0.32, rot: 0 },
+
+          // Two Rows of Suspended Track Spotlights (大门到后厨天花板下垂吊装，离地3m，每排5个)
+          {
+            id: 'track_left',
+            kind: 'trackLight',
+            label: '轨道射灯(5头)',
+            cx: 1.20,
+            cy: 3.50,
+            w: 0.24,
+            h: 5.80,
+            rot: 0,
+          },
+          {
+            id: 'track_right',
+            kind: 'trackLight',
+            label: '轨道射灯(5头)',
+            cx: 2.75,
+            cy: 3.50,
+            w: 0.24,
+            h: 5.80,
+            rot: 0,
+          },
         ];
       }
 
       const PRESETS = {
-        diningTable: { kind: 'diningTable', label: '餐桌', w: 1.15, h: 0.65 },
+        diningTable: { kind: 'diningTable', label: '餐桌', w: 1.20, h: 0.60 },
         sideTable:   { kind: 'sideTable',   label: '桌',   w: 0.60, h: 0.60 },
         stool:       { kind: 'stool',       label: '凳',   w: 0.38, h: 0.38 },
         cashier:     { kind: 'cashier',     label: '收银台', w: 1.50, h: 0.50 },
@@ -1653,6 +1667,8 @@
         partition:   { kind: 'partition',   label: '隔断', w: 2.00, h: 0.40 },
         serving:     { kind: 'serving',     label: '出餐台', w: 2.00, h: 0.42 },
         fan:         { kind: 'fan',         label: '吊扇', w: 0.65, h: 0.65 },
+        wallFan:     { kind: 'wallFan',     label: '壁扇', w: 0.34, h: 0.48 },
+        trackLight:  { kind: 'trackLight',  label: '轨道射灯(5头)', w: 0.24, h: 5.80 },
         elecBox:     { kind: 'elecBox',     label: '电箱', w: 0.50, h: 0.35 },
         power:       { kind: 'power',       label: '电',   w: 0.32, h: 0.32 },
       };
@@ -1667,10 +1683,12 @@
         partition: '隔断',
         serving: '出餐台',
         cashier: '收银台',
-        diningTable: '餐桌',
+        diningTable: '四人餐桌',
         sideTable: '右侧桌',
         stool: '凳子',
         fan: '吊扇',
+        wallFan: '壁扇 (H=2.65m)',
+        trackLight: '轨道射灯 (H=3m)',
         elecBox: '电箱',
         power: '“电”点位',
       };
@@ -1679,6 +1697,7 @@
       // 3. Application State & History
       // ============================================================
       const state = {
+        scheme: 'ceilingFan', // 'ceilingFan' | 'wallFan'
         items: [],
         selectedId: null,
         showDimensions: true,
@@ -1734,7 +1753,8 @@
 
       function saveStorage() {
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
+          localStorage.setItem(`${STORAGE_KEY}_${state.scheme}`, JSON.stringify(state.items));
+          localStorage.setItem(`${STORAGE_KEY}_active`, state.scheme);
         } catch (_) {}
       }
 
@@ -2482,6 +2502,62 @@
             break;
           }
 
+          case 'wallFan': {
+            // Wall-mounted oscillating fan: bracket at -X (wall face), cage & blades facing +X into room
+            el('rect', {
+              x: x0, y: -6, width: 5, height: 12, rx: 1,
+              fill: '#1e293b',
+            }, g);
+            el('line', {
+              x1: x0 + 5, y1: 0, x2: 2, y2: 0,
+              stroke: '#475569', 'stroke-width': 2.5,
+            }, g);
+            const cageR = Math.min(wPx * 0.38, hPx * 0.42);
+            const cxFan = x0 + wPx * 0.62;
+            el('ellipse', {
+              cx: cxFan, cy: 0, rx: cageR * 0.52, ry: cageR,
+              fill: '#ecfeff', stroke: '#0284c7', 'stroke-width': 1.6,
+            }, g);
+            // Oscillating breeze arc
+            el('path', {
+              d: `M ${cxFan + cageR * 0.65} ${-cageR * 0.55} Q ${cxFan + cageR * 1.15} 0 ${cxFan + cageR * 0.65} ${cageR * 0.55}`,
+              fill: 'none', stroke: '#38bdf8', 'stroke-width': 1.2, 'stroke-dasharray': '2,2',
+            }, g);
+            addLabel(g, item.label, 9, '#0369a1');
+            break;
+          }
+
+          case 'trackLight': {
+            // Transparent hit area along track so tables underneath remain easy to see
+            el('rect', {
+              x: x0, y: y0, width: wPx, height: hPx,
+              fill: 'rgba(245, 158, 11, 0.06)',
+              stroke: '#d97706',
+              'stroke-width': 1,
+              'stroke-dasharray': '4,3',
+            }, g);
+            const horiz = wPx >= hPx;
+            const span = horiz ? wPx : hPx;
+            const railThick = 4;
+            if (horiz) {
+              el('rect', { x: -span / 2 + 4, y: -railThick / 2, width: Math.max(8, span - 8), height: railThick, rx: 1.5, fill: '#1e293b' }, g);
+            } else {
+              el('rect', { x: -railThick / 2, y: -span / 2 + 4, width: railThick, height: Math.max(8, span - 8), rx: 1.5, fill: '#1e293b' }, g);
+            }
+            // 5 evenly spaced spotlights along the track
+            const count = 5;
+            const margin = Math.min(26, span * 0.08);
+            const usable = Math.max(10, span - margin * 2);
+            for (let i = 0; i < count; i++) {
+              const offset = -usable / 2 + (usable * i) / (count - 1);
+              const lx = horiz ? offset : 0;
+              const ly = horiz ? 0 : offset;
+              el('circle', { cx: lx, cy: ly, r: 6.5, fill: '#fef3c7', stroke: '#d97706', 'stroke-width': 1.6 }, g);
+              el('circle', { cx: lx, cy: ly, r: 2.5, fill: '#f59e0b' }, g);
+            }
+            break;
+          }
+
           case 'elecBox': {
             el('rect', {
               x: x0, y: y0, width: wPx, height: hPx, rx: 2,
@@ -3107,7 +3183,7 @@
       btnRedo.addEventListener('click', redo);
 
       document.getElementById('btnReset').addEventListener('click', () => {
-        state.items = createInitialItems();
+        state.items = createInitialItems(state.scheme);
         state.selectedId = null;
         renderItems();
         renderSelection();
@@ -3116,7 +3192,7 @@
         switchSidebarTab('area');
         pushHistory();
         fitView();
-        showToast('已重置为初始图纸布局');
+        showToast(state.scheme === 'wallFan' ? '已重置【方案B：壁扇版】' : '已重置【方案A：吊扇版】');
       });
 
       // Build clean export SVG document (excluding transient selection handles)
@@ -4190,6 +4266,127 @@
               break;
             }
 
+            case 'wallFan': {
+              // Commercial wall-mounted fan at Y = 2.65m (bracket at -w/2, blowing toward +X)
+              const mountY = 2.65 - baseY;
+              const fanG = new THREE.Group();
+              fanG.position.set(0, mountY, 0);
+
+              // Wall mounting plate at -w/2
+              const plate = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.18, 0.12), darkMetalMat);
+              plate.position.set(-w / 2 + 0.015, 0, 0);
+              fanG.add(plate);
+
+              // Angled neck arm
+              const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.18, 8), darkMetalMat);
+              arm.rotation.z = -Math.PI / 3;
+              arm.position.set(-w / 2 + 0.09, 0.04, 0);
+              fanG.add(arm);
+
+              // Motor housing & tilted fan head (facing +X, pitched 15 deg down toward diners)
+              const headG = new THREE.Group();
+              headG.position.set(-w / 2 + 0.20, 0.07, 0);
+              headG.rotation.z = -0.26;
+
+              const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.13, 14), darkMetalMat);
+              motor.rotation.z = Math.PI / 2;
+              motor.position.x = -0.04;
+              headG.add(motor);
+
+              const cageR = Math.min(0.23, d * 0.48);
+              const ringMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.4, metalness: 0.5 });
+              const cageRing = new THREE.Mesh(new THREE.TorusGeometry(cageR, 0.012, 8, 24), ringMat);
+              cageRing.rotation.y = Math.PI / 2;
+              cageRing.position.x = 0.05;
+              cageRing.castShadow = true;
+              headG.add(cageRing);
+
+              // 3 Fan blades
+              const bladeMat = new THREE.MeshStandardMaterial({ color: '#38bdf8', roughness: 0.35 });
+              [0, (Math.PI * 2) / 3, (Math.PI * 4) / 3].forEach((ang) => {
+                const bg = new THREE.Group();
+                bg.position.x = 0.045;
+                bg.rotation.x = ang;
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(0.012, cageR * 0.85, 0.07), bladeMat);
+                blade.position.y = cageR * 0.44;
+                blade.rotation.y = 0.25;
+                bg.add(blade);
+                headG.add(bg);
+              });
+
+              const cap = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 12), darkMetalMat);
+              cap.position.x = 0.055;
+              headG.add(cap);
+
+              fanG.add(headG);
+              g.add(fanG);
+              break;
+            }
+
+            case 'trackLight': {
+              // Suspended track rail at 3.00m above ground, hanging from 4.70m black ceiling (1.70m rods)
+              const trackY = 3.00 - baseY;
+              const ceilY = 4.70 - baseY;
+              const rodLen = Math.max(0.2, ceilY - trackY);
+              const alongZ = d >= w;
+              const railLen = Math.max(w, d);
+              const railMat = new THREE.MeshStandardMaterial({ color: '#18181b', roughness: 0.45, metalness: 0.6 });
+              const lensMat = new THREE.MeshStandardMaterial({
+                color: '#fef3c7',
+                emissive: '#fbbf24',
+                emissiveIntensity: 0.9,
+                roughness: 0.2,
+              });
+
+              // Main track rail at Y = 3.00m
+              const railGeo = alongZ
+                ? new THREE.BoxGeometry(0.05, 0.045, railLen)
+                : new THREE.BoxGeometry(railLen, 0.045, 0.05);
+              const rail = new THREE.Mesh(railGeo, railMat);
+              rail.position.y = trackY;
+              rail.castShadow = true;
+              g.add(rail);
+
+              // 3 vertical suspension rods from 4.70m ceiling down to 3.00m rail
+              [-railLen * 0.40, 0, railLen * 0.40].forEach((off) => {
+                const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, rodLen, 8), railMat);
+                rod.position.set(alongZ ? 0 : off, trackY + rodLen / 2, alongZ ? off : 0);
+                g.add(rod);
+                const canopy = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.025, 12), railMat);
+                canopy.position.set(alongZ ? 0 : off, ceilY - 0.012, alongZ ? off : 0);
+                g.add(canopy);
+              });
+
+              // 5 spotlight heads per track rail (slightly below 3.00m rail, angled gently)
+              const spotCount = 5;
+              const usable = Math.max(0.4, railLen - 0.50);
+              for (let i = 0; i < spotCount; i++) {
+                const off = -usable / 2 + (usable * i) / (spotCount - 1);
+                const spotG = new THREE.Group();
+                spotG.position.set(alongZ ? 0 : off, trackY - 0.07, alongZ ? off : 0);
+
+                // Bracket stem
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.07, 8), railMat);
+                stem.position.y = 0.04;
+                spotG.add(stem);
+
+                // Spotlight cylinder head
+                const head = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 0.13, 14), railMat);
+                head.rotation.z = 0.16;
+                head.castShadow = true;
+                spotG.add(head);
+
+                // Warm glowing lens face at bottom of spotlight
+                const lens = new THREE.Mesh(new THREE.CircleGeometry(0.042, 14), lensMat);
+                lens.rotation.x = Math.PI / 2;
+                lens.position.y = -0.066;
+                spotG.add(lens);
+
+                g.add(spotG);
+              }
+              break;
+            }
+
             case 'elecBox': {
               const box = new THREE.Mesh(
                 new THREE.BoxGeometry(w, 0.65, d),
@@ -4457,8 +4654,46 @@
       });
 
       // ============================================================
-      // 12. Bootstrap
+      // 12. Scheme Switcher & Bootstrap
       // ============================================================
+      const tabSchemeCeiling = document.getElementById('tabSchemeCeiling');
+      const tabSchemeWall = document.getElementById('tabSchemeWall');
+
+      function loadSchemeItems(scheme) {
+        let loaded = null;
+        try {
+          const raw = localStorage.getItem(`${STORAGE_KEY}_${scheme}`);
+          if (raw) loaded = JSON.parse(raw);
+        } catch (_) {}
+        return Array.isArray(loaded) && loaded.length > 0 ? loaded : createInitialItems(scheme);
+      }
+
+      function switchScheme(scheme) {
+        if (state.scheme === scheme) return;
+        saveStorage(); // persist current scheme before switching
+        state.scheme = scheme;
+        tabSchemeCeiling.classList.toggle('active', scheme === 'ceilingFan');
+        tabSchemeWall.classList.toggle('active', scheme === 'wallFan');
+
+        state.selectedId = null;
+        state.items = loadSchemeItems(scheme);
+        state.history = [];
+        state.historyIndex = -1;
+
+        renderItems();
+        renderSelection();
+        syncInspector();
+        renderAreaBoard();
+        pushHistory();
+        if (threeInit && viewMode === '3d') {
+          rebuild3DFurniture();
+        }
+        showToast(scheme === 'wallFan' ? '已切换至【方案B：两侧壁扇版（共4个壁扇）】' : '已切换至【方案A：居中吊扇版（共3个吊扇）】');
+      }
+
+      tabSchemeCeiling.addEventListener('click', () => switchScheme('ceilingFan'));
+      tabSchemeWall.addEventListener('click', () => switchScheme('wallFan'));
+
       function init() {
         buildDefs();
         renderGrid();
@@ -4466,14 +4701,18 @@
         renderArchitecture();
         renderDimensions();
 
-        // Restore from localStorage if available
-        let loaded = null;
+        // Restore active scheme from localStorage if available
+        let savedScheme = 'ceilingFan';
         try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) loaded = JSON.parse(raw);
+          const s = localStorage.getItem(`${STORAGE_KEY}_active`);
+          if (s === 'wallFan' || s === 'ceilingFan') savedScheme = s;
         } catch (_) {}
 
-        state.items = Array.isArray(loaded) && loaded.length > 0 ? loaded : createInitialItems();
+        state.scheme = savedScheme;
+        tabSchemeCeiling.classList.toggle('active', savedScheme === 'ceilingFan');
+        tabSchemeWall.classList.toggle('active', savedScheme === 'wallFan');
+
+        state.items = loadSchemeItems(savedScheme);
         renderItems();
         renderSelection();
         syncInspector();
