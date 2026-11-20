@@ -4441,13 +4441,15 @@
         document.querySelectorAll('.hud3d-btn[data-cam]').forEach((b) => {
           b.classList.toggle('active', b.getAttribute('data-cam') === preset);
         });
+        camera3D.fov = preset === 'front' ? 66 : 48;
+        camera3D.updateProjectionMatrix();
         if (preset === 'iso') {
           camera3D.position.set(10.5, 11.5, 3.2);
           controls3D.target.set(1.8, 1.5, -7.2);
         } else if (preset === 'front') {
-          // Inside front entrance looking up at 4m cement paint, 0.7m black top & black ceiling
-          camera3D.position.set(1.85, 1.65, -0.55);
-          controls3D.target.set(1.80, 2.35, -6.90);
+          // Exact 大门 center coordinates (X=2.23m, eye Y=1.62m, Z=0.00m doorway center)
+          camera3D.position.set(2.23, 1.62, 0.00);
+          controls3D.target.set(1.88, 1.88, -6.90);
         } else if (preset === 'kitchen') {
           // Inside raised kitchen showing 20cm floor, 30x30 floor tiles & 5 walls with 2m wall tiles
           camera3D.position.set(1.80, 1.85, -7.80);
@@ -4725,6 +4727,23 @@
 
         fitView();
         window.addEventListener('resize', applyViewBox);
+
+        // Optional URL query params (?mode=3d&cam=front&scheme=wallFan&hideHud=1)
+        const params = new URLSearchParams(window.location.search);
+        const qScheme = params.get('scheme');
+        if (qScheme === 'wallFan' || qScheme === 'ceilingFan') {
+          switchScheme(qScheme);
+        }
+        if (params.get('hideHud') === '1') {
+          document.querySelectorAll('.hud3d-top, .hud3d-bottom, .nav3d-pad, .inspector, .toolbar, .statusbar').forEach((n) => {
+            n.style.display = 'none';
+          });
+        }
+        if (params.get('mode') === '3d') {
+          setViewMode('3d');
+          const qCam = params.get('cam');
+          if (qCam) set3DCameraPreset(qCam);
+        }
       }
 
       init();
