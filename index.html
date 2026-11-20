@@ -1138,7 +1138,7 @@
 
             <div class="area-card front-black">
               <div class="area-card-head">
-                <span class="area-card-title">5. 前厅黑漆面积 (0.7m+顶)</span>
+                <span class="area-card-title">5. 黑漆面积 (前厅+后厨上部)</span>
                 <span id="valFrontBlack" class="area-card-val">-- m²</span>
               </div>
               <div id="subFrontBlack" class="area-card-sub"></div>
@@ -3541,11 +3541,11 @@
         frontLight2.position.set(1.85, 3.8, -5.2);
         scene3D.add(frontLight2);
 
-        const kitchenLight1 = new THREE.PointLight('#f0f9ff', 0.72, 12);
+        const kitchenLight1 = new THREE.PointLight('#f0f9ff', 0.85, 12);
         kitchenLight1.position.set(1.85, 4.1, -9.2);
         scene3D.add(kitchenLight1);
 
-        const kitchenLight2 = new THREE.PointLight('#f0f9ff', 0.65, 12);
+        const kitchenLight2 = new THREE.PointLight('#f0f9ff', 0.78, 12);
         kitchenLight2.position.set(1.55, 4.1, -12.4);
         scene3D.add(kitchenLight2);
 
@@ -3860,9 +3860,9 @@
         pRight.castShadow = true;
         scene3D.add(pRight);
 
-        // ---- 4. Kitchen 5 Walls: 2m Ceramic Wall Tiles (隔断面不贴砖) ----
+        // ---- 4. Kitchen 5 Walls: 2m Ceramic Wall Tiles + Upper 2.5m Matte Black Paint (隔断面不贴砖) ----
         const wallTileBaseTex = createTileTexture(['#ffffff', '#f8fafc'], '#cbd5e1', 2, 3);
-        const kitchenUpperMat = new THREE.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.85 });
+        const kitchenUpperMat = new THREE.MeshStandardMaterial({ color: '#16161a', roughness: 0.88, metalness: 0.04 });
 
         const kitchenWallSegs = [
           [inLeftPart, inC],      // 1. Left 5m wall
@@ -4617,18 +4617,21 @@
         document.getElementById('detFrontCement').innerHTML =
           `若含前入口墙（扣窗 ${winArea.toFixed(2)}m²、大门 ${doorArea.toFixed(2)}m²）共计 <strong>${cementTotalWithFront.toFixed(2)} m²</strong>`;
 
-        // 5. 前厅黑漆面积 (4.00 ~ 4.70m 高 + 天花板)
+        // 5. 黑漆面积 (前厅 4.00~4.70m 高 + 前厅天花板 + 后厨未贴砖上部 2.20~4.70m)
         const blackLRBand = lrSideLen * 0.70;
         const blackFrontBand = frontInnerW * 0.70;
         const blackCeiling = fFloorGross;
         const blackTotalLRAndCeil = blackLRBand + blackCeiling;
-        const blackTotalAll = blackLRBand + blackFrontBand + blackCeiling;
+        const blackFrontAll = blackLRBand + blackFrontBand + blackCeiling;
+        const kUpperBlackH = 4.70 - 0.20 - 2.00; // 2.50m (垫高0.20 + 瓷砖2.00 之上)
+        const blackKitchenUpper = kWallTotalLen * kUpperBlackH;
+        const blackGrandTotal = blackFrontAll + blackKitchenUpper;
 
-        document.getElementById('valFrontBlack').textContent = `${blackTotalAll.toFixed(2)} m²`;
+        document.getElementById('valFrontBlack').textContent = `${blackGrandTotal.toFixed(2)} m²`;
         document.getElementById('subFrontBlack').textContent =
-          `左右顶带 ${blackLRBand.toFixed(2)} m² + 前墙顶带 ${blackFrontBand.toFixed(2)} m² + 天花板 ${blackCeiling.toFixed(2)} m²`;
+          `前厅(0.7m顶带+天花板) ${blackFrontAll.toFixed(2)} m² + 后厨未贴砖墙面(5面×${kUpperBlackH.toFixed(2)}m高) ${blackKitchenUpper.toFixed(2)} m²`;
         document.getElementById('detFrontBlack').innerHTML =
-          `仅计左右 0.7m 顶带 + 天花板为 <strong>${blackTotalLRAndCeil.toFixed(2)} m²</strong>（天花板按 ${frontInnerW.toFixed(2)}×${frontInnerD.toFixed(2)}m 计）`;
+          `前厅细项：左右顶带 ${blackLRBand.toFixed(2)} + 前墙顶带 ${blackFrontBand.toFixed(2)} + 天花板 ${blackCeiling.toFixed(2)} m²（不含前墙顶带为 ${blackTotalLRAndCeil.toFixed(2)} m²）`;
 
         latestAreaTextReport = [
           '【店铺装修面积统计清单（层高4.7m / 隔断厚' + partThick.toFixed(2) + 'm）】',
@@ -4636,7 +4639,7 @@
           `2. 后厨地砖面积（30×30cm，垫高20cm）：净 ${kFloorNet.toFixed(2)} m²（毛面积 ${kFloorGross.toFixed(2)} m²，含5%损耗约 ${tiles30Count} 片）`,
           `3. 前厅地砖面积（60×60cm）：净 ${fFloorNet.toFixed(2)} m²（毛面积 ${fFloorGross.toFixed(2)} m²，含5%损耗约 ${tiles60Count} 片）`,
           `4. 前厅水泥漆面积（至4m高）：左右两面墙 ${cementLR.toFixed(2)} m²（含前入口净墙面共 ${cementTotalWithFront.toFixed(2)} m²）`,
-          `5. 前厅黑漆面积（剩0.7m高+天花板）：含前墙顶带共 ${blackTotalAll.toFixed(2)} m²（左右0.7m+天花板 ${blackTotalLRAndCeil.toFixed(2)} m²）`,
+          `5. 黑漆面积合计：${blackGrandTotal.toFixed(2)} m²（其中前厅0.7m顶带+天花板 ${blackFrontAll.toFixed(2)} m²，后厨未贴砖上部5面墙 ${blackKitchenUpper.toFixed(2)} m²）`,
         ].join('\n');
       }
 
