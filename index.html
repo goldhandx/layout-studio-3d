@@ -1058,13 +1058,14 @@
           </div>
           <div class="hud3d-group">
             <button id="btnDragMode3D" class="hud3d-btn" title="切换鼠标左键功能：旋转视角 或 上下左右平移">🖱️ 左键: 旋转视角</button>
+            <button id="btnToggle3DLabels" class="hud3d-btn active" title="显示或隐藏 3D 空间关键标识（灶台/出餐口/收银台）">🏷️ 3D 标识: 开</button>
             <button id="btnCeilingMode" class="hud3d-btn active" title="自动透视：俯视时透明，进入室内抬头可见4.7m黑顶">天花板: 自动透视</button>
             <button id="btnExport3DPng" class="hud3d-btn">📷 导出 3D 渲染图</button>
           </div>
         </div>
         <div class="hud3d-bottom">
           ⌨️ <strong>WASD / ↑↓←→</strong> 前后左右移动 · <strong>Q/E</strong> 下降/上升 · 🖱️ 左键旋转(可切换平移) / 右键平移 / 滚轮缩放 ·
-          层高 <strong>4.70m</strong> | 后厨垫高 <strong>20cm</strong>（30×30地砖 + 5面墙2m墙砖）|
+          层高 <strong>4.70m</strong> | 后厨垫高 <strong>20cm</strong>（30×30防滑小红砖 + 5面墙2m墙砖 + 2m以上黑漆）|
           前厅 <strong>60×60地砖</strong> + 4m水泥漆 + 0.7m黑顶黑天花板
         </div>
         <div class="nav3d-pad" title="按住方向按钮持续移动视角">
@@ -1111,7 +1112,7 @@
 
             <div class="area-card kitchen-floor">
               <div class="area-card-head">
-                <span class="area-card-title">2. 后厨地砖面积 (30×30)</span>
+                <span class="area-card-title">2. 后厨小红砖 (30×30防滑)</span>
                 <span id="valKitchenFloorTile" class="area-card-val">-- m²</span>
               </div>
               <div id="subKitchenFloorTile" class="area-card-sub"></div>
@@ -1258,7 +1259,7 @@
       // ============================================================
       const SCALE = 60; // 1 meter = 60 SVG pixels
       const WALL_T = 0.12; // 12cm architectural wall thickness inward
-      const STORAGE_KEY = 'oldfriend_cad_floorplan_v3';
+      const STORAGE_KEY = 'oldfriend_cad_floorplan_v4';
 
       // Architectural meter coordinates:
       // Origin (0, 0) = bottom-left outer corner of main shop area.
@@ -1428,13 +1429,13 @@
             rot: 0,
           },
 
-          // Left Wall Kitchen: 圆桶/水池 + 灶台(380V)
+          // Left Wall Kitchen: 圆桶/水池 + 灶台(380V, 紧靠左侧隔断/出餐口后方)
           {
             id: 'vat_1',
             kind: 'vat',
             label: '圆桶',
             cx: 0.44,
-            cy: 10.75,
+            cy: 9.55,
             w: 0.52,
             h: 0.52,
             rot: 0,
@@ -1444,7 +1445,7 @@
             kind: 'stove',
             label: '灶台 380V',
             cx: 0.46,
-            cy: 9.25,
+            cy: 8.15,
             w: 0.62,
             h: 1.45,
             rot: 0,
@@ -3365,14 +3366,59 @@
       const tabMode3D = document.getElementById('tabMode3D');
       const btnCeilingMode = document.getElementById('btnCeilingMode');
       const btnDragMode3D = document.getElementById('btnDragMode3D');
+      const btnToggle3DLabels = document.getElementById('btnToggle3DLabels');
       let dragMode3D = 'rotate'; // 'rotate' | 'pan'
+      let show3DLabels = true;
 
       let threeInit = false;
       let scene3D, camera3D, renderer3D, controls3D;
-      let furnitureGroup3D, ceilingGroup3D, selectionBox3D;
+      let furnitureGroup3D, ceilingGroup3D, labels3DGroup, selectionBox3D;
       let ceilingMode = 'auto'; // 'auto' | 'show' | 'hide'
       let ceilingMaterials = [];
       let raycaster3D, pointer3D;
+
+      function createRedAntiSlipTileTexture(cellsPerRepeat = 2, linePx = 5) {
+        const size = 256;
+        const c = document.createElement('canvas');
+        c.width = size;
+        c.height = size;
+        const ctx = c.getContext('2d');
+        // Dark charcoal cement grout
+        ctx.fillStyle = '#3f3f46';
+        ctx.fillRect(0, 0, size, size);
+
+        const reds = ['#9e3828', '#943223', '#a6402f', '#9a3627'];
+        const cell = size / cellsPerRepeat;
+        for (let r = 0; r < cellsPerRepeat; r++) {
+          for (let col = 0; col < cellsPerRepeat; col++) {
+            const x0 = col * cell + linePx / 2;
+            const y0 = r * cell + linePx / 2;
+            const cw = cell - linePx;
+            const ch = cell - linePx;
+            ctx.fillStyle = reds[(r * 2 + col) % reds.length];
+            ctx.fillRect(x0, y0, cw, ch);
+
+            // Subtle inner bevel highlight
+            ctx.strokeStyle = 'rgba(255, 220, 210, 0.14)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x0 + 2, y0 + 2, cw - 4, ch - 4);
+
+            // Classic non-slip raised dot / waffle texture grid
+            ctx.fillStyle = 'rgba(55, 16, 10, 0.20)';
+            const step = 10;
+            for (let dx = x0 + 8; dx < x0 + cw - 6; dx += step) {
+              for (let dy = y0 + 8; dy < y0 + ch - 6; dy += step) {
+                ctx.fillRect(dx, dy, 3, 3);
+              }
+            }
+          }
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.anisotropy = 4;
+        return tex;
+      }
 
       function createTileTexture(tileColors, groutColor, cellsPerRepeat = 2, linePx = 4) {
         const size = 256;
@@ -3413,12 +3459,16 @@
         const ctx = c.getContext('2d');
         ctx.fillStyle = '#9ca3af';
         ctx.fillRect(0, 0, size, size);
-        // Soft mottled micro-cement strokes
-        for (let i = 0; i < 420; i++) {
-          const x = (i * 73) % size;
-          const y = (i * 137) % size;
-          const r = 6 + (i % 18);
-          ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(15,23,42,0.045)';
+        // Deterministic organic micro-cement mottling (no linear lattice pattern)
+        const hash = (n) => {
+          const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+          return x - Math.floor(x);
+        };
+        for (let i = 0; i < 600; i++) {
+          const x = hash(i * 1.3 + 1) * size;
+          const y = hash(i * 2.7 + 9) * size;
+          const r = 6 + hash(i * 3.1 + 5) * 20;
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.032)' : 'rgba(15,23,42,0.032)';
           ctx.beginPath();
           ctx.arc(x, y, r, 0, Math.PI * 2);
           ctx.fill();
@@ -3459,7 +3509,7 @@
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.set(cx, baseY + height / 2, -cy);
         mesh.rotation.y = Math.atan2(dy, dx);
-        mesh.receiveShadow = true;
+        mesh.receiveShadow = false; // Prevent directional shadow-acne striping on flat interior wall liners
         return mesh;
       }
 
@@ -3529,7 +3579,8 @@
         dirLight.shadow.camera.bottom = -16;
         dirLight.shadow.camera.near = 1;
         dirLight.shadow.camera.far = 35;
-        dirLight.shadow.bias = -0.0005;
+        dirLight.shadow.bias = -0.0002;
+        dirLight.shadow.normalBias = 0.035;
         scene3D.add(dirLight);
 
         // Interior warm dining point lights & cool bright kitchen lights
@@ -3751,25 +3802,25 @@
         slabMesh.receiveShadow = true;
         scene3D.add(slabMesh);
 
-        // 30x30cm kitchen floor tiles on top of raised slab (Y = 0.201m)
-        const kFloorTex = createTileTexture(['#f1f5f9', '#e8eef5'], '#64748b', 2, 4);
+        // 经典防滑小红砖 30x30cm on top of raised slab (Y = 0.202m)
+        const kFloorTex = createRedAntiSlipTileTexture(2, 5);
         const kTopGeo = makePlanarUVGeometry(kShape, 0.60, 0.60); // 2 cells per 0.60m => each tile = 0.30m x 0.30m
         kTopGeo.rotateX(-Math.PI / 2);
         const kTopMesh = new THREE.Mesh(
           kTopGeo,
-          new THREE.MeshStandardMaterial({ map: kFloorTex, roughness: 0.35, metalness: 0.05 })
+          new THREE.MeshStandardMaterial({ map: kFloorTex, roughness: 0.68, metalness: 0.04 })
         );
         kTopMesh.position.y = H_KITCHEN_STEP + 0.002;
         kTopMesh.receiveShadow = true;
         scene3D.add(kTopMesh);
 
-        // Exposed 20cm tiled step riser along y = 6.90m (visible at right doorway!)
+        // Exposed 20cm red anti-slip tiled step riser along y = 6.90m (visible at right doorway!)
         const riserTex = kFloorTex.clone();
         riserTex.needsUpdate = true;
         riserTex.repeat.set(frontW / 0.60, H_KITCHEN_STEP / 0.60);
         const riser = new THREE.Mesh(
           new THREE.PlaneGeometry(frontW, H_KITCHEN_STEP),
-          new THREE.MeshStandardMaterial({ map: riserTex, roughness: 0.45 })
+          new THREE.MeshStandardMaterial({ map: riserTex, roughness: 0.72 })
         );
         riser.position.set((inLeftPart.x + inRightPart.x) / 2, H_KITCHEN_STEP / 2, -6.90 + 0.003);
         riser.receiveShadow = true;
@@ -3989,24 +4040,27 @@
         }
       }
 
-      function create3DTextBadge(text, bgColor = '#1e293b', textColor = '#ffffff') {
+      function create3DTextBadge(text, bgColor = '#1e293b', textColor = '#ffffff', scaleW = 0.82) {
         const c = document.createElement('canvas');
-        c.width = 256;
+        c.width = 320;
         c.height = 96;
         const ctx = c.getContext('2d');
         ctx.fillStyle = bgColor;
         ctx.beginPath();
-        ctx.roundRect(12, 12, 232, 72, 16);
+        ctx.roundRect(10, 12, 300, 72, 16);
         ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
         ctx.fillStyle = textColor;
-        ctx.font = 'bold 40px "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.font = 'bold 38px "PingFang SC", "Microsoft YaHei", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, 128, 48);
+        ctx.fillText(text, 160, 48);
         const tex = new THREE.CanvasTexture(c);
-        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true });
         const sp = new THREE.Sprite(mat);
-        sp.scale.set(0.65, 0.24, 1);
+        sp.scale.set(scaleW, scaleW * 0.30, 1);
         return sp;
       }
 
@@ -4015,12 +4069,22 @@
         while (furnitureGroup3D.children.length > 0) {
           furnitureGroup3D.remove(furnitureGroup3D.children[0]);
         }
+        if (!labels3DGroup) {
+          labels3DGroup = new THREE.Group();
+          scene3D.add(labels3DGroup);
+        }
+        while (labels3DGroup.children.length > 0) {
+          labels3DGroup.remove(labels3DGroup.children[0]);
+        }
+        labels3DGroup.visible = show3DLabels;
 
         const stainlessMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.35, metalness: 0.65 });
         const darkMetalMat = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.5, metalness: 0.5 });
         const woodMat = new THREE.MeshStandardMaterial({ color: '#d4a373', roughness: 0.65 });
         const shelfWoodMat = new THREE.MeshStandardMaterial({ color: '#e9c46a', roughness: 0.7 });
-        const cementBoardMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.88 });
+        const partCementTex = createCementTexture();
+        partCementTex.repeat.set(1.4, 1.4);
+        const cementBoardMat = new THREE.MeshStandardMaterial({ map: partCementTex, color: '#cbd5e1', roughness: 0.90 });
         const glassMat = new THREE.MeshPhysicalMaterial({
           color: '#bfdbfe', transparent: true, opacity: 0.36, roughness: 0.1, metalness: 0.1,
         });
@@ -4058,11 +4122,11 @@
 
               // Pass-through serving ledge (出餐口 0.92 -> 1.32m is open!)
               const innerSpan = Math.max(0.4, w - pierW * 2);
-              const sill = new THREE.Mesh(new THREE.BoxGeometry(innerSpan, 0.04, d + 0.04), darkMetalMat);
+              const sill = new THREE.Mesh(new THREE.BoxGeometry(innerSpan, 0.045, d + 0.06), stainlessMat);
               sill.position.set(0, 0.92, 0);
               g.add(sill);
 
-              // Glass panel above serving cutout (1.32m -> 2.50m)
+              // Glass panel above serving cutout (1.32m -> 2.50m) with aluminum perimeter mullions
               const glassH = 1.18;
               const gPane = new THREE.Mesh(new THREE.BoxGeometry(innerSpan, glassH, 0.03), glassMat);
               gPane.position.set(0, 1.32 + glassH / 2, 0);
@@ -4070,6 +4134,9 @@
               const transomBar = new THREE.Mesh(new THREE.BoxGeometry(innerSpan, 0.05, 0.08), darkMetalMat);
               transomBar.position.set(0, 1.32, 0);
               g.add(transomBar);
+              const topFrameBar = new THREE.Mesh(new THREE.BoxGeometry(innerSpan, 0.05, 0.08), darkMetalMat);
+              topFrameBar.position.set(0, 2.50, 0);
+              g.add(topFrameBar);
 
               // Upper cement board (2.50m -> 4.70m), extended across right doorway to right wall (3.55m)
               const upperH = H - 2.50;
@@ -4087,12 +4154,21 @@
 
               const kDoor = new THREE.Group();
               kDoor.position.set(w / 2 + doorSpan - 0.04, 0.20, 0);
-              kDoor.rotation.y = 0.65; // Open into kitchen
+              kDoor.rotation.y = 1.25; // Swung wide open (~72°) into kitchen so step & red tiles are clearly visible
               const kDoorPanel = new THREE.Mesh(new THREE.BoxGeometry(0.90, 2.28, 0.04), whiteMat);
               kDoorPanel.position.set(-0.45, 1.14, 0);
               kDoorPanel.castShadow = true;
               kDoor.add(kDoorPanel);
               g.add(kDoor);
+
+              // 3D Landmark Badges: 出餐口 & 20cm 台阶
+              const passBadge = create3DTextBadge('出餐口 (40cm隔断)', '#0f172a', '#fde68a', 0.96);
+              passBadge.position.set(item.cx + 0.06, 1.44, -(item.cy - d / 2 - 0.24));
+              labels3DGroup.add(passBadge);
+
+              const stepBadge = create3DTextBadge('垫高20cm台阶', '#991b1b', '#ffffff', 0.76);
+              stepBadge.position.set(item.cx + w / 2 + 0.36, 0.48, -(item.cy - d / 2 - 0.24));
+              labels3DGroup.add(stepBadge);
               break;
             }
 
@@ -4171,13 +4247,50 @@
               body.position.y = H / 2;
               body.castShadow = true;
               g.add(body);
-              // 4 cast-iron burners
+
+              // Stainless steel backsplash along left wall side (-w/2)
+              const splash = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.30, d), stainlessMat);
+              splash.position.set(-w / 2 + 0.015, H + 0.15, 0);
+              g.add(splash);
+
+              // Front control knobs (+w/2 face)
+              for (let k = 0; k < 4; k++) {
+                const kz = -d * 0.35 + (d * 0.70 * k) / 3;
+                const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.025, 10), darkMetalMat);
+                knob.rotation.z = Math.PI / 2;
+                knob.position.set(w / 2 + 0.01, H - 0.12, kz);
+                g.add(knob);
+              }
+
+              // 4 cast-iron burners with subtle warm pilot ring
+              const flameMat = new THREE.MeshStandardMaterial({
+                color: '#fb923c', emissive: '#ea580c', emissiveIntensity: 0.75, roughness: 0.3,
+              });
               const bx = w * 0.22, bz = d * 0.24;
               [[-bx, -bz], [bx, -bz], [-bx, bz], [bx, bz]].forEach(([x, z]) => {
                 const burner = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.04, 16), darkMetalMat);
                 burner.position.set(x, H + 0.02, z);
                 g.add(burner);
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.008, 6, 16), flameMat);
+                ring.rotation.x = Math.PI / 2;
+                ring.position.set(x, H + 0.042, z);
+                g.add(ring);
               });
+
+              // Overhead commercial stainless exhaust hood (排油烟罩) & vertical duct
+              const hood = new THREE.Mesh(new THREE.BoxGeometry(w + 0.14, 0.40, d + 0.12), stainlessMat);
+              hood.position.set(0.04, 2.25, 0);
+              hood.castShadow = true;
+              g.add(hood);
+              const ductH = 4.50 - 2.45;
+              const duct = new THREE.Mesh(new THREE.BoxGeometry(0.32, ductH, 0.45), stainlessMat);
+              duct.position.set(-w * 0.15, 2.45 + ductH / 2, 0);
+              g.add(duct);
+
+              // Prominent 3D Stove Badge visible from inside kitchen & through 出餐口/glass
+              const stoveBadge = create3DTextBadge('🔥 灶台 380V', '#b91c1c', '#ffffff', 0.88);
+              stoveBadge.position.set(item.cx + 0.08, baseY + 1.72, -item.cy);
+              labels3DGroup.add(stoveBadge);
               break;
             }
 
@@ -4441,7 +4554,7 @@
         document.querySelectorAll('.hud3d-btn[data-cam]').forEach((b) => {
           b.classList.toggle('active', b.getAttribute('data-cam') === preset);
         });
-        camera3D.fov = preset === 'front' ? 66 : 48;
+        camera3D.fov = (preset === 'front' || preset === 'kitchen') ? 66 : 48;
         camera3D.updateProjectionMatrix();
         if (preset === 'iso') {
           camera3D.position.set(10.5, 11.5, 3.2);
@@ -4451,9 +4564,9 @@
           camera3D.position.set(2.23, 1.62, 0.00);
           controls3D.target.set(1.88, 1.88, -6.90);
         } else if (preset === 'kitchen') {
-          // Inside raised kitchen showing 20cm floor, 30x30 floor tiles & 5 walls with 2m wall tiles
-          camera3D.position.set(1.80, 1.85, -7.80);
-          controls3D.target.set(1.50, 1.35, -13.20);
+          // Open right-side kitchen corridor view showing red anti-slip floor tiles, 灶台 380V, 2m wall tiles & black upper walls
+          camera3D.position.set(3.25, 2.15, -7.45);
+          controls3D.target.set(0.85, 1.05, -10.40);
         } else if (preset === 'counter') {
           // Looking right at 40cm 隔断 + 出餐口 + 20cm kitchen step
           camera3D.position.set(2.35, 1.75, -3.90);
@@ -4485,6 +4598,13 @@
 
       document.querySelectorAll('.hud3d-btn[data-cam]').forEach((btn) => {
         btn.addEventListener('click', () => set3DCameraPreset(btn.getAttribute('data-cam')));
+      });
+
+      btnToggle3DLabels.addEventListener('click', () => {
+        show3DLabels = !show3DLabels;
+        btnToggle3DLabels.textContent = show3DLabels ? '🏷️ 3D 标识: 开' : '🏷️ 3D 标识: 关';
+        btnToggle3DLabels.classList.toggle('active', show3DLabels);
+        if (labels3DGroup) labels3DGroup.visible = show3DLabels;
       });
 
       btnCeilingMode.addEventListener('click', () => {
@@ -4589,7 +4709,7 @@
         document.getElementById('subKitchenFloorTile').textContent =
           `后厨室内毛面积 ${kFloorGross.toFixed(2)} m² − 隔断占压 ${kPartOccupy.toFixed(2)} m²`;
         document.getElementById('detKitchenFloorTile').innerHTML =
-          `含门口 20cm 台阶立面 ${riserDoor.toFixed(2)} m² · 30×30cm 地砖约 <strong>${tiles30Count} 片</strong>（含5%损耗）`;
+          `经典防滑小红砖 30×30cm 约 <strong>${tiles30Count} 片</strong>（含5%损耗，另含门口 20cm 台阶立面 ${riserDoor.toFixed(2)} m²）`;
 
         // 3. 前厅地砖面积 (60×60cm)
         const frontInnerW = inB.x - inA.x; // 3.43m
